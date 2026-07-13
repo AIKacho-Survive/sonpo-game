@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#122744">
+<title>その時、そばに。｜事故対応体験ストーリー</title>
+<style>
+/* ============================================================
+   ▼▼ 差し替えポイント（会社情報）は本ファイル末尾の CONFIG を編集 ▼▼
+   ============================================================ */
+:root{
+  --navy:#122744;        /* ベース（夜・信頼） */
+  --teal:#0E7C7B;        /* 代理店＝プレイヤー */
+  --teal-deep:#0A5B5A;
+  --blue:#3D6CB9;        /* 保険会社担当 */
+  --amber:#F2A65A;       /* お客様・安心度 */
+  --amber-soft:#FBEBD8;
+  --mist:#EAF4F2;        /* 背景ウォッシュ */
+  --paper:#FAFDFC;
+  --ink:#22303F;
+  --sub:#6B7A86;
+  --ng:#C0564B;
+  --radius:18px;
+  --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo UI",Meiryo,"Noto Sans JP",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:var(--font);
+  background:var(--navy);
+  color:var(--ink);
+  display:flex;justify-content:center;
+  overscroll-behavior:none;
+}
+#app{
+  width:100%;max-width:480px;height:100dvh;
+  background:var(--mist);
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;
+}
+
+/* ---------- 安心度メーター ---------- */
+#hud{
+  background:var(--paper);
+  padding:10px 16px 8px;
+  border-bottom:1px solid #DDE8E6;
+  z-index:5;
+}
+#hud .hud-row{display:flex;align-items:center;gap:10px}
+#hud .hud-label{font-size:11px;font-weight:700;color:var(--teal-deep);letter-spacing:.08em;white-space:nowrap}
+#meter{flex:1;height:14px;background:#E3ECEA;border-radius:8px;overflow:hidden;position:relative}
+#meter-fill{
+  height:100%;width:40%;
+  background:linear-gradient(90deg,var(--amber),#F7C489);
+  border-radius:8px;
+  transition:width .8s cubic-bezier(.22,1,.36,1);
+}
+#meter-num{font-size:13px;font-weight:800;color:var(--ink);min-width:2.6em;text-align:right;font-variant-numeric:tabular-nums}
+#hud .hud-sub{font-size:10px;color:var(--sub);margin-top:3px;text-align:right}
+.float-pt{
+  position:absolute;right:70px;top:34px;
+  font-size:15px;font-weight:800;color:var(--teal);
+  animation:floatUp 1.2s ease-out forwards;pointer-events:none;z-index:9;
+}
+.float-pt.minus{color:var(--ng)}
+@keyframes floatUp{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-26px)}}
+
+/* ---------- ストーリー領域 ---------- */
+#story{
+  flex:1;overflow-y:auto;padding:16px 14px 130px;
+  scroll-behavior:smooth;
+  -webkit-overflow-scrolling:touch;
+}
+.beat{margin-bottom:12px;animation:fadeIn .45s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.narration{
+  text-align:center;color:var(--sub);font-size:12.5px;line-height:1.9;
+  padding:6px 20px;
+}
+.scene-title{
+  text-align:center;margin:18px 0 14px;
+}
+.scene-title .st-time{
+  display:inline-block;background:var(--navy);color:#fff;
+  font-size:12px;font-weight:700;letter-spacing:.15em;
+  padding:6px 18px;border-radius:20px;
+}
+.bubble{
+  max-width:82%;padding:12px 14px;border-radius:var(--radius);
+  font-size:14.5px;line-height:1.8;position:relative;
+}
+.who{font-size:10.5px;font-weight:700;margin-bottom:4px;letter-spacing:.05em}
+.b-left{margin-right:auto}
+.b-right{margin-left:auto}
+.b-customer{background:var(--amber-soft);border:1.5px solid #F0D3B0;border-bottom-left-radius:4px}
+.b-customer .who{color:#B26A1E}
+.b-insurer{background:#E4ECF8;border:1.5px solid #BFD0EC;border-bottom-left-radius:4px}
+.b-insurer .who{color:var(--blue)}
+.b-player{background:var(--teal);color:#fff;border-bottom-right-radius:4px}
+.b-player .who{color:#BDE6E0}
+.b-other{background:#fff;border:1.5px solid #E0E6E4;border-bottom-left-radius:4px}
+.b-other .who{color:var(--sub)}
+
+/* ---------- 選択肢 ---------- */
+#dock{
+  position:absolute;left:0;right:0;bottom:0;
+  padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--mist) 78%,rgba(234,244,242,0));
+  z-index:6;
+}
+.q-label{font-size:12px;font-weight:800;color:var(--teal-deep);margin-bottom:8px;letter-spacing:.05em}
+.choice-btn,.next-btn{
+  display:block;width:100%;text-align:left;
+  background:#fff;border:2px solid var(--teal);
+  color:var(--ink);border-radius:14px;
+  padding:13px 14px;font-size:14px;line-height:1.6;font-weight:600;
+  margin-bottom:8px;font-family:var(--font);
+  transition:transform .08s ease,background .15s;
+  cursor:pointer;
+}
+.choice-btn:active{transform:scale(.98);background:var(--mist)}
+.next-btn{
+  text-align:center;background:var(--teal);color:#fff;border-color:var(--teal);
+  font-weight:800;letter-spacing:.1em;
+}
+.next-btn:active{transform:scale(.98);background:var(--teal-deep)}
+.next-btn.quiet{background:#fff;color:var(--teal-deep)}
+
+/* ---------- ポイントカード・チェックリスト ---------- */
+.card{
+  background:#fff;border-radius:var(--radius);
+  border:1.5px solid #DCE7E4;
+  padding:16px;margin:4px 2px;
+  box-shadow:0 3px 14px rgba(18,39,68,.06);
+}
+.card .card-tag{
+  display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.15em;
+  color:#fff;background:var(--teal);padding:3px 12px;border-radius:12px;margin-bottom:10px;
+}
+.card.pt-good .card-tag{background:var(--teal)}
+.card.pt-bad .card-tag{background:var(--ng)}
+.card h4{font-size:14.5px;margin-bottom:8px;color:var(--navy);line-height:1.6}
+.card p{font-size:13px;line-height:1.9;color:var(--ink)}
+.card .small{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.7}
+
+.check-item{
+  display:flex;align-items:center;gap:10px;
+  background:#fff;border:2px solid #DCE7E4;border-radius:14px;
+  padding:12px 14px;margin-bottom:8px;font-size:14px;font-weight:600;
+  cursor:pointer;transition:border-color .2s,background .2s;
+}
+.check-item .cbox{
+  width:22px;height:22px;border-radius:7px;border:2px solid #C4D2CF;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:#fff;flex-shrink:0;transition:background .2s,border-color .2s;
+}
+.check-item.done{border-color:var(--teal);background:#F0FAF8}
+.check-item.done .cbox{background:var(--teal);border-color:var(--teal)}
+.check-item.ng{border-color:var(--ng);background:#FBEDEB}
+.check-item.ng .cbox{background:var(--ng);border-color:var(--ng)}
+
+/* 正解リビール */
+.reveal{margin-top:12px;padding-top:12px;border-top:1.5px dashed #D8E2DF}
+.reveal .rv-label{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.12em;color:#fff;background:var(--navy);padding:3px 12px;border-radius:12px;margin-bottom:8px}
+.reveal .rv-ans{font-size:13.5px;font-weight:700;color:var(--teal-deep);line-height:1.8;margin-bottom:6px}
+.reveal .rv-why{font-size:12.5px;line-height:1.9;color:var(--ink)}
+
+/* 役割分担カード */
+.role-grid{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.role-box{border-radius:14px;padding:12px 14px}
+.role-box.agent{background:#E9F6F4;border:2px solid var(--teal)}
+.role-box.insurer{background:#EAF0FA;border:2px solid var(--blue)}
+.role-box .r-title{font-size:12.5px;font-weight:800;margin-bottom:6px}
+.role-box.agent .r-title{color:var(--teal-deep)}
+.role-box.insurer .r-title{color:var(--blue)}
+.role-box ul{list-style:none}
+.role-box li{font-size:12.5px;line-height:1.8;padding-left:1.2em;position:relative}
+.role-box li::before{content:"・";position:absolute;left:0}
+
+/* 試算カード */
+.calc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:7px 2px;border-bottom:1px dashed #D8E2DF}
+.calc-row .cv{font-weight:800;font-variant-numeric:tabular-nums}
+.calc-row.total{border-bottom:none;font-weight:800;color:var(--navy);font-size:14px}
+.calc-note{font-size:10.5px;color:var(--sub);margin-top:8px;line-height:1.7}
+
+/* ---------- 着信画面（タイトル） ---------- */
+#callscreen{
+  position:absolute;inset:0;z-index:20;
+  background:radial-gradient(ellipse at 50% 18%,#23406B 0%,var(--navy) 62%);
+  color:#fff;display:flex;flex-direction:column;align-items:center;
+  justify-content:space-between;
+  padding:0 24px calc(48px + env(safe-area-inset-bottom));
+  text-align:center;
+  transition:opacity .5s ease,visibility .5s;
+}
+#callscreen.hide{opacity:0;visibility:hidden}
+.cs-top{margin-top:12vh}
+.cs-brand{font-size:11px;letter-spacing:.3em;color:#8FB0C9;font-weight:700;margin-bottom:26px}
+.cs-incoming{font-size:13px;color:#AFC6DB;letter-spacing:.2em;animation:blink 1.6s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.cs-name{font-size:30px;font-weight:800;margin-top:10px;letter-spacing:.05em}
+.cs-role{font-size:13px;color:#AFC6DB;margin-top:6px}
+.cs-lead{font-size:13.5px;line-height:2.1;color:#D7E4EF;margin-top:34px}
+.cs-answer{
+  width:84px;height:84px;border-radius:50%;
+  background:#2FBF71;border:none;color:#fff;font-size:34px;
+  box-shadow:0 0 0 0 rgba(47,191,113,.5);
+  animation:pulse 1.8s ease-out infinite;
+  cursor:pointer;
+}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,191,113,.55)}70%{box-shadow:0 0 0 26px rgba(47,191,113,0)}100%{box-shadow:0 0 0 0 rgba(47,191,113,0)}}
+.cs-answer-label{font-size:12px;color:#AFC6DB;margin-top:12px;letter-spacing:.15em}
+.cs-time{font-size:12px;color:#7E97AE;margin-top:8px}
+
+/* ---------- 結果画面 ---------- */
+#result{
+  position:absolute;inset:0;z-index:15;background:var(--mist);
+  overflow-y:auto;display:none;
+  padding:28px 20px calc(30px + env(safe-area-inset-bottom));
+}
+#result.show{display:block;animation:fadeIn .5s ease both}
+.rs-head{text-align:center;margin-bottom:18px}
+.rs-eyebrow{font-size:11px;font-weight:800;letter-spacing:.25em;color:var(--teal-deep)}
+.rs-title{font-size:24px;font-weight:800;color:var(--navy);margin-top:8px;line-height:1.5}
+.rs-score-wrap{text-align:center;margin:20px 0 6px}
+.rs-score{font-size:56px;font-weight:800;color:var(--teal);line-height:1;font-variant-numeric:tabular-nums}
+.rs-score small{font-size:16px;color:var(--sub);font-weight:700}
+.rs-rank{
+  display:inline-block;margin-top:12px;
+  background:var(--navy);color:#fff;font-size:14px;font-weight:800;
+  padding:8px 22px;border-radius:22px;letter-spacing:.1em;
+}
+.learn{margin-top:20px}
+.learn .card{margin-bottom:10px}
+.learn h4{display:flex;gap:8px;align-items:baseline}
+.learn h4 .no{color:var(--teal);font-weight:800}
+.cta{
+  margin-top:22px;background:var(--navy);border-radius:var(--radius);
+  padding:20px 18px;color:#fff;text-align:center;
+}
+.cta .cta-copy{font-size:13.5px;line-height:2;color:#D7E4EF}
+.cta .cta-company{font-size:17px;font-weight:800;margin-top:10px;letter-spacing:.05em}
+.cta .cta-lic{font-size:10px;color:#8FA8BF;margin-top:4px}
+.cta a.cta-btn{
+  display:block;margin-top:14px;background:var(--amber);color:var(--navy);
+  font-weight:800;font-size:15px;text-decoration:none;
+  padding:14px;border-radius:14px;letter-spacing:.08em;
+}
+.replay{
+  display:block;width:100%;margin-top:14px;background:#fff;
+  border:2px solid var(--teal);color:var(--teal-deep);
+  font-weight:800;font-size:14px;border-radius:14px;padding:13px;
+  font-family:var(--font);cursor:pointer;
+}
+.disclaimer{
+  font-size:10px;color:var(--sub);line-height:1.9;margin-top:18px;
+  padding-top:14px;border-top:1px solid #D8E2DF;
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- 着信画面（タイトル） -->
+  <div id="callscreen">
+    <div class="cs-top">
+      <div class="cs-brand" id="cs-brand">SONPO STORY</div>
+      <div class="cs-incoming">着信中 …</div>
+      <div class="cs-name" id="cs-caller">佐藤 様</div>
+      <div class="cs-role">ご契約者（自動車保険）</div>
+      <div class="cs-lead">
+        月曜の朝9時。<br>
+        あなたは保険代理店の担当者。<br>
+        1本の電話から、この物語は始まります。
+      </div>
+    </div>
+    <div>
+      <button class="cs-answer" id="btn-answer" aria-label="電話に出る">&#9990;</button>
+      <div class="cs-answer-label">タップして電話に出る</div>
+      <div class="cs-time">プレイ時間 約3〜5分</div>
+    </div>
+  </div>
+
+  <!-- 安心度メーター -->
+  <div id="hud">
+    <div class="hud-row">
+      <span class="hud-label">お客様の安心度</span>
+      <div id="meter"><div id="meter-fill"></div></div>
+      <span id="meter-num">40</span>
+    </div>
+    <div class="hud-sub">あなたの対応で変化します</div>
+  </div>
+
+  <!-- ストーリー -->
+  <div id="story" aria-live="polite"></div>
+
+  <!-- 操作ドック -->
+  <div id="dock"></div>
+
+  <!-- 結果画面 -->
+  <div id="result"></div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   ▼▼▼ CONFIG：配布前にここを差し替えてください ▼▼▼
+   ============================================================ */
+const CONFIG = {
+  companyName : "○○保険サービス株式会社",   // 貴社名
+  companyNote : "損害保険代理業・生命保険代理業", // 事業表記
+  contactLabel: "お問い合わせはこちら",
+  contactUrl  : "#",   // 貴社サイトの問い合わせページURL または "tel:0000000000"
+  customerName: "佐藤"  // 登場する契約者の姓
+};
+/* ============================================================ */
+
+const $ = s => document.querySelector(s);
+const story = $("#story"), dock = $("#dock");
+let trust = 40;
+const START_TRUST = 40;
+
+function setTrust(delta){
+  if(delta === 0) return;
+  trust = Math.max(0, Math.min(100, trust + delta));
+  $("#meter-fill").style.width = trust + "%";
+  $("#meter-num").textContent = trust;
+  const f = document.createElement("div");
+  f.className = "float-pt" + (delta < 0 ? " minus" : "");
+  f.textContent = (delta > 0 ? "+" : "") + delta;
+  $("#app").appendChild(f);
+  setTimeout(()=>f.remove(), 1300);
+}
+
+function el(html){
+  const d = document.createElement("div");
+  d.innerHTML = html.trim();
+  return d.firstElementChild;
+}
+function addBeat(node){
+  node.classList.add("beat");
+  story.appendChild(node);
+  requestAnimationFrame(()=> story.scrollTo({top: story.scrollHeight, behavior:"smooth"}));
+}
+function bubble(kind, who, text, side){
+  addBeat(el(`<div class="bubble ${kind} ${side}"><div class="who">${who}</div>${text}</div>`));
+}
+const CU = CONFIG.customerName;
+const say = {
+  customer:(t)=> bubble("b-customer", CU + "さん（ご契約者）", t, "b-left"),
+  player  :(t)=> bubble("b-player", "あなた（代理店担当者）", t, "b-right"),
+  insurer :(t)=> bubble("b-insurer", "保険会社 損害サービス担当", t, "b-left"),
+  other   :(t,w)=> bubble("b-other", w, t, "b-left"),
+  narr    :(t)=> addBeat(el(`<div class="narration">${t}</div>`)),
+  scene   :(t)=> addBeat(el(`<div class="scene-title"><span class="st-time">${t}</span></div>`)),
+  card    :(html)=> addBeat(el(html))
+};
+
+/* ---------- シナリオ定義 ----------
+   step: {type, ...}  type = n(ナレーション)/s(シーン見出し)/c(customer)/p(player)/i(insurer)/o(other)/card/choice/checklist/end
+------------------------------------- */
+const SCRIPT = [
+ {t:"s", x:"AM 9:02　事務所"},
+ {t:"c", x:`あ、あの……${CU}です。今、事故を起こしてしまって……。どうしたらいいか分からなくて……`},
+ {t:"n", x:"声がひどく動揺している。<br>最初の一言が、お客様の不安を左右する。"},
+ {t:"choice",
+  q:"最初に何と声をかける？",
+  opts:[
+   {x:"「まず、お怪我はありませんか？ 同乗の方や相手の方も含めて」", pt:15,
+    fb:{tag:"GOOD", h:"最優先は「人の安全」", p:"事故対応の第一声は、状況でも保険でもなく<b>お怪我の確認</b>。負傷者がいればためらわず119番へ。お客様は「心配してくれた」ことで少し冷静さを取り戻せます。"}},
+   {x:"「相手の車のナンバーと連絡先は控えましたか？」", pt:5,
+    fb:{tag:"POINT", h:"情報も大事。でも順番がある", p:"記録の確認は重要ですが、動揺しているお客様への第一声としては早すぎます。まずは<b>お怪我の確認</b>から。安全→記録→手続き、の順番が基本です。"}},
+   {x:"「大丈夫です、保険でぜんぶ直せますから！」", pt:-5,
+    fb:{tag:"NG", h:"補償の断定は禁物", p:"励ましたい気持ちは正解。ただし契約内容や事故状況を確認する前に「ぜんぶ保険で」と<b>断定してはいけません</b>。まずはお怪我の確認と、落ち着いて状況を聞くことから。"}}
+  ]},
+ {t:"c", x:"けがは……私も相手の方も、ないと思います。交差点で出会い頭にぶつかってしまって……"},
+ {t:"c", x:"それで、相手の方が「大ごとにしたくないから、警察は呼ばずに今ここでお金で解決しよう」って言っていて……。その方が早いんでしょうか？"},
+ {t:"choice",
+  q:"何とアドバイスする？",
+  opts:[
+   {x:"「その場での示談は絶対にせず、必ず警察に届け出てください」", pt:15,
+    fb:{tag:"GOOD", h:"警察への届出は法律上の義務", p:"事故の届出は道路交通法上の<b>義務</b>です。届出がないと「交通事故証明書」が発行されず、<b>保険金の請求に支障が出る</b>おそれも。その場の示談は、あとから話が食い違うトラブルの元です。"}},
+   {x:"「少額なら、その場で解決したほうが早いかもしれませんね」", pt:-5,
+    fb:{tag:"NG", h:"その場の示談はトラブルの元", p:"警察への届出は<b>義務</b>であり、届出がないと交通事故証明書が出ず保険金請求に支障が出るおそれがあります。あとから「首が痛い」と言われるケースも。その場の現金解決は絶対に避けるべき対応です。"}},
+   {x:"「どうすべきか、保険会社に確認してから折り返します」", pt:5,
+    fb:{tag:"POINT", h:"確認姿勢は◎。ただし届出は即答すべき基本", p:"分からないことを確認するのは誠実な姿勢です。ただ「警察への届出」は代理店として<b>即答すべき基本中の基本</b>。目の前の相手を待たせる間にお客様が押し切られてしまうかもしれません。"}}
+  ]},
+ {t:"c", x:"分かりました、今すぐ110番します……！"},
+ {t:"n", x:"続けて、現場での行動を伝えよう。<br>やるべきことをすべてタップ。<br><b>ただし1つだけ、やってはいけない行動</b>が混ざっている。"},
+ {t:"checklist",
+  items:[
+   {x:"現場と車の損傷をスマホで撮影", ok:true},
+   {x:"相手の氏名・連絡先・車のナンバーを確認", ok:true},
+   {x:"急ぎの用事があれば、警察を待たずに現場を離れる", ok:false,
+    ng:{tag:"NG", h:"現場を離れてはいけない", p:"警察の到着前に現場を離れると、道路交通法上の<b>報告義務違反（いわゆる当て逃げ扱い）</b>となるおそれがあります。どんなに急いでいても、警察の対応が終わるまで現場に留まるのが鉄則です。"}},
+   {x:"目撃者がいれば連絡先を聞いておく", ok:true},
+   {x:"自分からは過失を認める発言をしない", ok:true}
+  ],
+  after:{tag:"POINT", h:"現場の記録が、あとの手続きを速くする", p:"写真・相手情報・目撃者の記録は、過失割合の協議や保険金請求の<b>大切な材料</b>になります。また、その場で安易に「自分が悪い」と認める発言をすると、あとの協議に影響することがあります。"}},
+ {t:"s", x:"AM 9:40　事務所"},
+ {t:"n", x:`警察の対応が終わった${CU}さんから、あらためて連絡が入った。<br>ここからが代理店の本領。<b>保険会社への事故報告</b>だ。`},
+ {t:"p", x:`${CU}さん、お疲れさまでした。事故の受付はこちらで承り、保険会社へ報告します。ご契約内容もいま確認しますね。`},
+ {t:"n", x:"── 代理店は、お客様と保険会社をつなぐ窓口。<br>契約内容を確認すると……"},
+ {t:"card", html:`<div class="card"><span class="card-tag">ご契約内容の確認</span>
+   <h4>${CU}さんの自動車保険（一例）</h4>
+   <div class="calc-row"><span>対物賠償</span><span class="cv">無制限</span></div>
+   <div class="calc-row"><span>車両保険</span><span class="cv">免責5万円</span></div>
+   <div class="calc-row"><span>代車特約</span><span class="cv">あり</span></div>
+   <p class="calc-note">※本ゲーム用の一例です。使える補償はご契約内容によって異なります。</p></div>`},
+ {t:"c", x:"相手の方への賠償って……私が直接、相手と交渉しないといけないんですか？ 正直、自信がないです……"},
+ {t:"choice",
+  q:"何と答える？",
+  opts:[
+   {x:"「いいえ。相手方との交渉は保険会社の担当者が行います。私も経過を一緒にフォローしますのでご安心ください」", pt:15,
+    fb:{tag:"GOOD", h:"示談交渉は保険会社の担当領域", p:"賠償をともなう相手方との示談交渉は、<b>保険会社の示談交渉サービス</b>が対応します（代理店は交渉の当事者にはなれません）。代理店の役割は、お客様の不安に寄り添い、保険会社との橋渡しをすること。"}},
+   {x:"「まずはご自身で相手の方と話し合ってみてください」", pt:-5,
+    fb:{tag:"NG", h:"お客様を一人にしない", p:"賠償の交渉をお客様自身に委ねるのは誤り。相手方との示談交渉は<b>保険会社の担当者</b>が行います。代理店が伝えるべきは「一人で抱えなくていい」ということです。"}},
+   {x:"「交渉は私が代わりにやっておきます！」", pt:0,
+    fb:{tag:"NG", h:"代理店は示談交渉の当事者になれない", p:"頼もしく聞こえますが、これは<b>できない約束</b>です。相手方との示談交渉は保険会社が行うもので、代理店が代わりに交渉することはできません。できないことを約束しない誠実さも、信頼のうち。"}}
+  ]},
+ {t:"s", x:"当日午後　三者通話"},
+ {t:"n", x:"事故受付が完了し、保険会社の損害サービス担当から連絡が入った。"},
+ {t:"i", x:"保険会社の損害サービス担当です。ここからは、相手方との過失割合の協議・示談交渉、そして<b>保険金のお支払いに関する決定</b>を私ども保険会社が担当します。"},
+ {t:"p", x:`手続きのサポートやご不明点は、引き続き私が窓口になります。${CU}さん、二人三脚でいきましょう。`},
+ {t:"card", html:`<div class="card"><span class="card-tag">役割分担</span>
+   <h4>「誰が何をするか」を知っておくと、事故は怖くない</h4>
+   <div class="role-grid">
+     <div class="role-box agent"><div class="r-title">保険代理店（あなた）</div>
+       <ul><li>事故受付・初動アドバイス</li><li>契約内容の確認と説明</li><li>請求手続きのサポート</li><li>不安への寄り添い・経過フォロー</li></ul></div>
+     <div class="role-box insurer"><div class="r-title">保険会社</div>
+       <ul><li>相手方との示談交渉</li><li>過失割合の協議</li><li>損害の調査</li><li><b>保険金の支払い決定</b></li></ul></div>
+   </div></div>`},
+ {t:"s", x:"2週間後"},
+ {t:"n", x:`保険会社での協議が進み、過失割合が決まった。<br>${CU}さんの車の修理も見積もりが出ている。`},
+ {t:"c", x:"私の車の修理、自己負担になる分が6万円くらいと言われました。車両保険……使ったほうがいいんでしょうか？"},
+ {t:"choice",
+  q:"何と答える？",
+  opts:[
+   {x:`「使った場合と使わない場合の負担を試算してお見せします。それを見て、${CU}さんご自身で決めましょう」`, pt:15,
+    fb:{tag:"GOOD", h:"代理店は「判断材料」を届ける人", p:"保険を使うと翌年度から等級が下がり、保険料が上がることがあります。<b>損得の材料をそろえて、決めるのはお客様</b>。「使わないほうが得」なら、それも正直に伝えるのが代理店の仕事です。"}},
+   {x:"「使えるものは使いましょう！ そのための保険です」", pt:0,
+    fb:{tag:"NG", h:"等級への影響を伝えないのはNG", p:"車両保険を使うと等級が下がり、以後の保険料が上がることがあります。<b>影響を伝えずに勧めるのは不誠実</b>。試算を示して、お客様が納得して選べるようにするのが正解です。"}},
+   {x:"「使わないほうがいいですよ」", pt:5,
+    fb:{tag:"POINT", h:"結論だけの断定は、もったいない", p:"結果的に正しくても、理由なしの断定ではお客様は納得できません。<b>試算という根拠</b>を見せて、お客様自身に選んでもらう。その過程こそが信頼になります。"}}
+  ]},
+ {t:"card", html:`<div class="card"><span class="card-tag">試算イメージ</span>
+   <h4>車両保険、使う？ 使わない？（一例）</h4>
+   <div class="calc-row"><span>自己負担分の修理費</span><span class="cv">6万円</span></div>
+   <div class="calc-row"><span>車両保険の免責（自己負担）</span><span class="cv">5万円</span></div>
+   <div class="calc-row"><span>→ 保険から受け取れる額</span><span class="cv">1万円</span></div>
+   <div class="calc-row total"><span>等級ダウンによる保険料の増加（3年累計・一例）</span><span class="cv">約5万円</span></div>
+   <p class="calc-note">この例では「使うと1万円受け取れるが、保険料は約5万円増える」——使わないほうが有利という結果に。<br>※金額はすべて架空の一例です。実際は契約内容・等級・保険会社の試算によります。</p></div>`},
+ {t:"c", x:"えっ……使わないほうが得なんですね。そんなことまで正直に教えてくれるなんて、思っていませんでした。"},
+ {t:"s", x:"3週間後　解決"},
+ {t:"n", x:"保険会社と相手方との示談が成立。<br>相手方への賠償は、保険会社から支払われた。"},
+ {t:"c", x:"担当さん、本当にありがとうございました。事故を起こしたときは頭が真っ白だったけど……最初の電話でつながった瞬間、「一人じゃない」って思えたんです。"},
+ {t:"p", x:"それが、私たち代理店の仕事です。これからも、何かあったらまず一本、お電話ください。"},
+ {t:"n", x:"保険は、入って終わりではありません。<br>「その時」にそばにいるのが、保険代理店です。<br><br>── そして「万一」や「病気・けが」に備える<br>生命保険のご相談も、私たちの仕事のひとつです。"},
+ {t:"end"}
+];
+
+/* ---------- エンジン ---------- */
+let idx = 0;
+function shuffle(a){
+  const r = [...a];
+  for(let i = r.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+function renderNextBtn(label, quiet){
+  dock.innerHTML = "";
+  const b = el(`<button class="next-btn${quiet ? " quiet" : ""}">${label}</button>`);
+  b.addEventListener("click", advance);
+  dock.appendChild(b);
+}
+function advance(){
+  if(idx >= SCRIPT.length) return;
+  const s = SCRIPT[idx++];
+  switch(s.t){
+    case "s": say.scene(s.x); return advance();
+    case "n": say.narr(s.x); renderNextBtn("次へ ▶"); break;
+    case "c": say.customer(s.x); renderNextBtn("次へ ▶"); break;
+    case "p": say.player(s.x); renderNextBtn("次へ ▶"); break;
+    case "i": say.insurer(s.x); renderNextBtn("次へ ▶"); break;
+    case "card": say.card(s.html); renderNextBtn("次へ ▶"); break;
+    case "choice": renderChoice(s); break;
+    case "checklist": renderChecklist(s); break;
+    case "end": showResult(); break;
+  }
+}
+function renderChoice(s){
+  dock.innerHTML = `<div class="q-label">Q. ${s.q}</div>`;
+  const best = s.opts.reduce((m,o)=> o.pt > m.pt ? o : m, s.opts[0]);
+  shuffle(s.opts).forEach(o=>{
+    const b = el(`<button class="choice-btn" data-pt="${o.pt}">${o.x}</button>`);
+    b.addEventListener("click", ()=>{
+      say.player(o.x.replace(/[「」]/g,""));
+      setTrust(o.pt);
+      const cls = o.fb.tag === "GOOD" ? "pt-good" : (o.fb.tag === "NG" ? "pt-bad" : "");
+      let inner = `<span class="card-tag">${o.fb.tag}</span><h4>${o.fb.h}</h4><p>${o.fb.p}</p>`;
+      if(o !== best){
+        inner += `<div class="reveal"><span class="rv-label">正解はこちらでした</span>
+          <p class="rv-ans">${best.x}</p>
+          <p class="rv-why">${best.fb.p}</p></div>`;
+      }
+      say.card(`<div class="card ${cls}">${inner}</div>`);
+      renderNextBtn("次へ ▶");
+    });
+    dock.appendChild(b);
+  });
+}
+function renderChecklist(s){
+  dock.innerHTML = `<div class="q-label">現場での行動（やるべきものをすべてタップ／1つはNG）</div>`;
+  const okTotal = s.items.filter(i=>i.ok).length;
+  let done = 0, trapped = false, finished = false;
+  shuffle(s.items).forEach(item=>{
+    const c = el(`<div class="check-item"><span class="cbox">${item.ok ? "✓" : "✕"}</span><span>${item.x}</span></div>`);
+    c.addEventListener("click", ()=>{
+      if(finished || c.classList.contains("done") || c.classList.contains("ng")) return;
+      if(item.ok){
+        c.classList.add("done");
+        done++;
+      }else{
+        c.classList.add("ng");
+        trapped = true;
+        setTrust(-5);
+        say.card(`<div class="card pt-bad"><span class="card-tag">${item.ng.tag}</span><h4>${item.ng.h}</h4><p>${item.ng.p}</p></div>`);
+      }
+      if(done === okTotal){
+        finished = true;
+        setTrust(trapped ? 5 : 10);
+        let inner = `<span class="card-tag">${s.after.tag}</span><h4>${s.after.h}</h4><p>${s.after.p}</p>`;
+        if(!trapped){
+          inner += `<p class="small">✨ NG行動「警察を待たずに現場を離れる」を見抜きました。お見事！</p>`;
+        }
+        say.card(`<div class="card pt-good">${inner}</div>`);
+        setTimeout(()=> renderNextBtn("次へ ▶"), 400);
+      }
+    });
+    dock.appendChild(c);
+  });
+}
+function rank(score){
+  if(score >= 90) return "頼れるパートナー";
+  if(score >= 70) return "安心の担当者";
+  if(score >= 50) return "駆け出し担当者";
+  return "研修中……もう一度挑戦！";
+}
+function showResult(){
+  dock.innerHTML = "";
+  const r = $("#result");
+  r.innerHTML = `
+    <div class="rs-head">
+      <div class="rs-eyebrow">RESULT</div>
+      <div class="rs-title">その時、そばに。</div>
+    </div>
+    <div class="rs-score-wrap">
+      <div class="rs-score">${trust}<small> /100</small></div><br>
+      <span class="rs-rank">${rank(trust)}</span>
+    </div>
+    <div class="learn">
+      <div class="card"><h4><span class="no">1</span>事故のとき、まず電話できる相手がいる</h4>
+        <p>受付・初動アドバイス・手続きサポート・寄り添い。代理店は事故解決までお客様の伴走者です。</p></div>
+      <div class="card"><h4><span class="no">2</span>示談交渉と保険金の支払い決定は「保険会社」</h4>
+        <p>相手方との交渉や支払いの決定は保険会社が担当。代理店はその橋渡し役として、お客様側に立ち続けます。</p></div>
+      <div class="card"><h4><span class="no">3</span>「使わないほうが得」も正直に</h4>
+        <p>判断材料をそろえて、決めるのはお客様。それが私たちの考える誠実さです。</p></div>
+    </div>
+    <div class="cta">
+      <div class="cta-copy">自動車・火災などの損害保険から、<br>万一に備える生命保険まで。<br>「その時」の前に、一度ご相談ください。</div>
+      <div class="cta-company">${CONFIG.companyName}</div>
+      <div class="cta-lic">${CONFIG.companyNote}</div>
+      <a class="cta-btn" href="${CONFIG.contactUrl}">${CONFIG.contactLabel}</a>
+    </div>
+    <button class="replay" id="btn-replay">もう一度はじめから</button>
+    <div class="disclaimer">
+      本コンテンツは、保険代理店の業務をご紹介するためのフィクションです。登場する人物・契約内容・金額はすべて架空の一例であり、特定の保険商品の推奨・募集を目的とするものではありません。実際の補償内容や保険金のお支払いは、ご契約の内容および引受保険会社の判断・調査によって決まります。保険を使用した場合の等級・保険料への影響は契約条件により異なります。
+    </div>`;
+  r.classList.add("show");
+  r.querySelector("#btn-replay").addEventListener("click", ()=>{
+    trust = START_TRUST; idx = 0;
+    $("#meter-fill").style.width = trust + "%";
+    $("#meter-num").textContent = trust;
+    story.innerHTML = ""; r.classList.remove("show");
+    advance();
+  });
+}
+
+/* ---------- 起動 ---------- */
+$("#cs-caller").textContent = CONFIG.customerName + " 様";
+$("#btn-answer").addEventListener("click", ()=>{
+  $("#callscreen").classList.add("hide");
+  advance();
+});
+</script>
+</body>
+</html>

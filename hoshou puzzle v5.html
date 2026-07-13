@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#101E33">
+<title>ホショウパズル｜つなげて、消して、安心。</title>
+<style>
+:root{
+  --bg1:#101E33; --bg2:#1C3352; --panel:#0B1626;
+  --gold:#FFD23F; --gold-deep:#B9791A;
+  --ink:#FFFFFF; --sub:#9FB8CE;
+  --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo UI",Meiryo,"Noto Sans JP",sans-serif;
+  /* 属性カラー */
+  --c0:#FF5A5F; --c0d:#C22F38;  /* 火災 */
+  --c1:#F2913D; --c1d:#B85F14;  /* 地震 */
+  --c2:#3D8BFF; --c2d:#1D5BC0;  /* 水災 */
+  --c3:#F5C518; --c3d:#B78D0A;  /* 自動車 */
+  --c4:#B06BFF; --c4d:#7A3BC8;  /* サイバー */
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{height:100%}
+body{
+  font-family:var(--font);color:var(--ink);
+  background:var(--bg1);overflow:hidden;touch-action:manipulation;
+  display:flex;justify-content:center;
+}
+#app{
+  width:100%;max-width:480px;height:100dvh;position:relative;
+  display:flex;flex-direction:column;overflow:hidden;
+  background:linear-gradient(180deg,var(--bg1),var(--bg2));
+}
+#app.shake{animation:shake .3s}
+@keyframes shake{
+  0%,100%{transform:translate(0,0)}25%{transform:translate(-6px,3px)}
+  50%{transform:translate(6px,-3px)}75%{transform:translate(-4px,2px)}
+}
+
+/* ===== HUD ===== */
+header{padding:10px 14px 4px;flex-shrink:0;z-index:10}
+.hud{display:flex;gap:8px}
+.hbox{
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.13);
+  border-radius:12px;padding:5px 10px;text-align:center;flex:1;
+}
+.hbox .lbl{font-size:9px;letter-spacing:.15em;opacity:.65;font-weight:700}
+.hbox b{display:block;font-size:20px;line-height:1.15;font-variant-numeric:tabular-nums}
+#chainBox b{color:var(--gold);text-shadow:0 0 10px rgba(255,210,63,.55);transition:transform .1s}
+#chainBox.bump b{transform:scale(1.4)}
+#timeBox b{color:#7DF3E6}
+#fireBox b{color:#FF8A5F;text-shadow:0 0 10px rgba(255,90,47,.45);font-size:9px;line-height:1.4;letter-spacing:.02em}
+#timeBox.low b{color:var(--c0);animation:blinkT .5s steps(1) infinite}
+@keyframes blinkT{50%{opacity:.35}}
+
+/* ===== ドラッグ持ち時間バー ===== */
+#movebar-wrap{
+  height:8px;margin:8px 14px 0;background:rgba(0,0,0,.4);
+  border-radius:5px;overflow:hidden;flex-shrink:0;
+}
+#movebar{
+  height:100%;width:100%;border-radius:5px;
+  background:linear-gradient(90deg,#33C6B8,#FFD23F,#FF5A5F);
+}
+
+/* ===== 盤面 ===== */
+#stage{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 10px;position:relative}
+#board{
+  position:relative;touch-action:none;
+  background:rgba(6,13,24,.55);
+  border:2px solid rgba(255,255,255,.12);
+  border-radius:16px;
+  box-shadow:inset 0 2px 14px rgba(0,0,0,.5);
+}
+.piece{
+  position:absolute;left:0;top:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:13px;
+  transition:transform .13s ease;
+  will-change:transform;
+  box-shadow:0 3px 0 rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.3);
+}
+.piece.drag{transition:none;z-index:30;box-shadow:0 8px 20px rgba(0,0,0,.55),0 0 0 3px var(--gold);scale:1.12}
+.piece .p-emoji{font-size:23px;line-height:1}
+.piece .p-name{font-size:8px;font-weight:800;line-height:1.1;margin-top:1px;letter-spacing:0;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.piece.risk{border:2px solid rgba(255,255,255,.35)}
+.piece.cover .p-emoji{font-size:19px}
+.piece.cover .p-name{font-size:8.5px}
+.piece.clearing{animation:pclear .3s forwards;z-index:20}
+@keyframes pclear{
+  0%{transform:var(--pos) scale(1);opacity:1;filter:brightness(2.4)}
+  100%{transform:var(--pos) scale(1.7);opacity:0;filter:brightness(3)}
+}
+/* 属性色 */
+.t0.risk{background:linear-gradient(160deg,#5A1B22,#3A0F14);border-color:var(--c0)}
+.t1.risk{background:linear-gradient(160deg,#5C3512,#3A200A)}
+.t1.risk{border-color:var(--c1)}
+.t2.risk{background:linear-gradient(160deg,#14335C,#0B1E3A);border-color:var(--c2)}
+.t3.risk{background:linear-gradient(160deg,#57470C,#382C06);border-color:var(--c3)}
+.t4.risk{background:linear-gradient(160deg,#3E2159,#26123A);border-color:var(--c4)}
+.t0.cover{background:linear-gradient(160deg,var(--c0),var(--c0d))}
+.t1.cover{background:linear-gradient(160deg,var(--c1),var(--c1d))}
+.t2.cover{background:linear-gradient(160deg,var(--c2),var(--c2d))}
+.t3.cover{background:linear-gradient(160deg,var(--c3),var(--c3d))}
+.t4.cover{background:linear-gradient(160deg,var(--c4),var(--c4d))}
+
+/* ===== 演出 ===== */
+.fx{position:absolute;pointer-events:none;z-index:40;font-weight:900;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+.fx.pt{animation:ptUp .85s ease-out forwards;font-size:16px;color:var(--gold)}
+@keyframes ptUp{
+  0%{transform:translateY(0) scale(.5);opacity:0}
+  18%{opacity:1;transform:translateY(-8px) scale(1.1)}
+  100%{transform:translateY(-46px) scale(1);opacity:0}
+}
+.spark{
+  position:absolute;width:8px;height:8px;border-radius:50%;
+  pointer-events:none;z-index:35;animation:spark .5s ease-out forwards;
+}
+@keyframes spark{
+  0%{transform:translate(0,0) scale(1);opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(.1);opacity:0}
+}
+.firebeam{
+  position:absolute;left:0;width:100%;z-index:25;pointer-events:none;
+  background:linear-gradient(90deg,rgba(255,90,47,0),#FFD23F 30%,#FF5A2F 55%,#FFF3C4 72%,rgba(255,90,47,0));
+  filter:blur(1px) brightness(1.5);
+  border-radius:10px;
+  animation:fsweep .6s ease-out forwards;
+}
+@keyframes fsweep{
+  0%{transform:translateX(-105%);opacity:.9}
+  55%{transform:translateX(0);opacity:1}
+  100%{transform:translateX(105%);opacity:0}
+}
+.piece.burning{filter:hue-rotate(-25deg) brightness(2.1) saturate(2.2)}
+/* クロスライアビリティ */
+.clbeam{
+  position:absolute;pointer-events:none;z-index:26;border-radius:10px;
+  filter:blur(1px) brightness(1.7);
+}
+.clbeam.h{
+  left:0;width:100%;
+  background:linear-gradient(90deg,rgba(125,243,230,0),#7DF3E6 28%,#FFFFFF 50%,#B06BFF 72%,rgba(176,107,255,0));
+  animation:clx .75s ease-out forwards;
+}
+.clbeam.v{
+  top:0;height:100%;
+  background:linear-gradient(180deg,rgba(125,243,230,0),#7DF3E6 28%,#FFFFFF 50%,#B06BFF 72%,rgba(176,107,255,0));
+  animation:cly .75s ease-out forwards;
+}
+@keyframes clx{0%{transform:scaleX(0);opacity:1}55%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
+@keyframes cly{0%{transform:scaleY(0);opacity:1}55%{transform:scaleY(1);opacity:1}100%{transform:scaleY(1);opacity:0}}
+.clflash{
+  position:absolute;inset:0;z-index:60;pointer-events:none;
+  background:radial-gradient(circle at var(--cx) var(--cy),rgba(255,255,255,.95),rgba(125,243,230,.35) 30%,transparent 65%);
+  animation:clf .55s ease-out forwards;
+}
+@keyframes clf{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+.clring{
+  position:absolute;width:40px;height:40px;margin:-20px 0 0 -20px;
+  border:3px solid #7DF3E6;border-radius:50%;z-index:27;pointer-events:none;
+  box-shadow:0 0 18px #7DF3E6, inset 0 0 12px #B06BFF;
+  animation:clr .7s ease-out forwards;
+}
+@keyframes clr{0%{transform:scale(.2);opacity:1}100%{transform:scale(7);opacity:0}}
+.piece.crossed{filter:hue-rotate(160deg) brightness(2.4) saturate(1.8)}
+/* 無保険ブロック */
+.piece.rock{
+  background:linear-gradient(160deg,#5A6572,#39424C);
+  border:2px dashed #8B98A5;
+}
+.piece.rock .p-emoji{font-size:22px}
+.piece.rock .p-name{color:#C7D2DC}
+.piece.shatter{filter:grayscale(1) brightness(1.7)}
+/* チップ解説ポップ */
+#chipPopWrap{
+  position:absolute;inset:0;z-index:140;
+  background:rgba(4,10,18,.55);backdrop-filter:blur(2px);
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+#chipPopWrap.hide{display:none}
+#chipPop{
+  background:#12233C;border:2px solid var(--gold);border-radius:16px;
+  padding:18px 20px;max-width:300px;text-align:center;
+  box-shadow:0 10px 40px rgba(0,0,0,.5);
+  animation:popin .18s ease-out;
+}
+@keyframes popin{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+#cpTitle{font-size:15px;font-weight:800;color:var(--gold);margin-bottom:8px}
+#cpDesc{font-size:12.5px;line-height:1.95;color:#DCE9F5}
+#cpClose{
+  margin-top:12px;background:var(--gold);color:#3A2600;border:none;
+  font-family:var(--font);font-weight:800;font-size:12.5px;
+  padding:8px 26px;border-radius:20px;cursor:pointer;
+}
+#cpNote{font-size:9px;color:#8FA8BF;margin-top:8px;line-height:1.6}
+.matched .chip{cursor:pointer}
+.matched .chip:active{background:rgba(255,210,63,.22);border-color:var(--gold)}
+/* ハブへ戻る */
+a.cta-btn.ghost{
+  background:transparent;color:var(--gold);
+  border:2px solid var(--gold);margin-top:8px;
+}
+.banner.umbrella{
+  font-size:32px;
+  background:linear-gradient(90deg,#8FA8FF,#FFD23F,#7DF3E6);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:none;
+  filter:drop-shadow(0 0 16px rgba(143,168,255,.9)) drop-shadow(0 3px 8px rgba(0,0,0,.6));
+}
+.umb-wrap{position:absolute;inset:0;z-index:45;pointer-events:none;overflow:hidden}
+.umb-glow{
+  position:absolute;left:50%;top:0;width:200%;height:120%;transform:translateX(-50%);
+  background:radial-gradient(ellipse at 50% 12%, rgba(143,168,255,.5), rgba(255,210,63,.18) 40%, transparent 70%);
+  animation:umbGlow 1.5s ease-out forwards;
+}
+@keyframes umbGlow{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+.umb-icon{
+  position:absolute;left:50%;top:20%;font-size:110px;
+  transform:translate(-50%,-50%) scale(.15) rotate(-40deg);opacity:0;
+  /* 開く(0〜0.7s) → ため(〜0.9s) → 開いたまま画面いっぱいに拡大しつつフェードアウト(0.9〜1.6s) */
+  animation:umbOpen .7s cubic-bezier(.2,1.4,.4,1) forwards,
+            umbVanish .7s ease-in .9s forwards;
+  filter:drop-shadow(0 0 26px rgba(143,168,255,.95));
+}
+@keyframes umbOpen{
+  0%{transform:translate(-50%,-50%) scale(.15) rotate(-40deg);opacity:0}
+  55%{opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1) rotate(0deg);opacity:1}
+}
+@keyframes umbVanish{
+  0%{transform:translate(-50%,-50%) scale(1) rotate(0deg);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(8.5) rotate(0deg);opacity:0}
+}
+.umb-drop{
+  position:absolute;width:4px;height:15px;border-radius:3px;
+  background:linear-gradient(180deg,rgba(255,210,63,0),#FFD23F);
+  opacity:0;animation:umbDrop .8s linear forwards;
+  box-shadow:0 0 6px rgba(255,210,63,.7);
+}
+@keyframes umbDrop{
+  0%{transform:translateY(-30px);opacity:0}
+  20%{opacity:1}
+  100%{transform:translateY(95px);opacity:0}
+}
+.piece.umbrella-hit{filter:brightness(2.2) saturate(1.6) hue-rotate(200deg)}
+.banner.cross{
+  font-size:34px;
+  background:linear-gradient(90deg,#7DF3E6,#B06BFF,#FFD23F);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:none;
+  filter:drop-shadow(0 0 16px rgba(125,243,230,.85)) drop-shadow(0 3px 8px rgba(0,0,0,.6));
+}
+#banner-layer{position:absolute;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+.banner{
+  position:absolute;left:50%;top:40%;transform:translateX(-50%);
+  font-size:32px;font-weight:900;color:#7DF3E6;white-space:nowrap;
+  text-shadow:0 0 18px rgba(51,198,184,.9),0 3px 8px rgba(0,0,0,.6);
+  animation:bIn 1s ease-out forwards;letter-spacing:.04em;
+}
+.banner.gold{color:var(--gold);text-shadow:0 0 20px rgba(255,210,63,.9),0 3px 8px rgba(0,0,0,.6)}
+@keyframes bIn{
+  0%{transform:translateX(-50%) scale(.4);opacity:0}
+  18%{transform:translateX(-50%) scale(1.18);opacity:1}
+  70%{transform:translateX(-50%) scale(1);opacity:1}
+  100%{transform:translateX(-50%) scale(1.05);opacity:0}
+}
+
+/* ===== 凡例 ===== */
+#legend{
+  flex-shrink:0;display:flex;justify-content:center;gap:6px;
+  padding:6px 8px calc(10px + env(safe-area-inset-bottom));
+  flex-wrap:wrap;
+}
+.lg{
+  font-size:9px;font-weight:700;color:#CFE2F0;
+  background:rgba(255,255,255,.07);border-radius:10px;padding:4px 8px;
+  display:flex;align-items:center;gap:4px;
+}
+
+/* ===== オーバーレイ ===== */
+.overlay{
+  position:absolute;inset:0;z-index:100;
+  background:rgba(6,12,21,.94);backdrop-filter:blur(8px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;padding:24px 20px;gap:11px;overflow-y:auto;
+}
+.overlay.hide{display:none}
+.logo{font-size:11px;letter-spacing:.4em;color:var(--gold);font-weight:800}
+.overlay h1{font-size:34px;line-height:1.2;font-weight:900}
+.overlay h1 span{color:var(--gold)}
+.overlay .lead{font-size:12.5px;line-height:2;color:#C9DCEA;max-width:320px}
+.demo{
+  display:flex;align-items:center;gap:8px;margin:2px 0;
+}
+.demo .dp{
+  width:46px;height:46px;border-radius:11px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  box-shadow:0 3px 0 rgba(0,0,0,.35);
+}
+.demo .dp span{font-size:19px;line-height:1}
+.demo .dp i{font-style:normal;font-size:7.5px;font-weight:800}
+.demo .eq{font-size:19px;color:var(--gold);font-weight:900}
+.btn{
+  margin-top:8px;background:linear-gradient(160deg,var(--gold),#F5A623);
+  color:#3A2600;font-weight:900;font-size:18px;border:none;font-family:var(--font);
+  padding:15px 46px;border-radius:40px;cursor:pointer;letter-spacing:.1em;
+  box-shadow:0 5px 0 var(--gold-deep);transition:transform .1s,box-shadow .1s;
+}
+.btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--gold-deep)}
+.final-score{font-size:56px;font-weight:900;color:var(--gold);line-height:1;font-variant-numeric:tabular-nums}
+.stat{font-size:13px;color:#C9DCEA}
+.rankmsg{font-size:16px;font-weight:800;color:var(--gold)}
+.matched{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:340px}
+.matched .chip{
+  background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.25);
+  color:#E8F2FA;font-size:10.5px;font-weight:700;padding:4px 10px;border-radius:12px;
+}
+.matched-lbl{font-size:10.5px;color:var(--sub);letter-spacing:.15em;font-weight:800;margin-top:6px}
+.cta{
+  margin-top:8px;background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:16px;padding:13px 18px;max-width:340px;
+}
+.cta .cta-copy{font-size:11.5px;line-height:1.9;color:#C9DCEA}
+.cta .cta-company{font-size:14.5px;font-weight:800;margin-top:5px}
+.cta .cta-lic{font-size:9px;color:#8FA8BF;margin-top:2px}
+.cta a.cta-btn{
+  display:block;margin-top:9px;background:var(--gold);color:#3A2600;
+  font-weight:800;font-size:13px;text-decoration:none;
+  padding:10px;border-radius:12px;letter-spacing:.08em;
+}
+.disclaimer{font-size:8.5px;color:#7E93A6;line-height:1.8;max-width:340px;margin-top:8px}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="hud">
+      <div class="hbox"><span class="lbl">SCORE</span><b id="score">0</b></div>
+      <div class="hbox" id="chainBox"><span class="lbl">MAX CHAIN</span><b id="chain">0</b></div>
+      <div class="hbox" id="fireBox"><span class="lbl">SKILL</span><b id="fire">🔥0/10<br>✚0/15</b></div>
+      <div class="hbox" id="timeBox"><span class="lbl">TIME</span><b id="time">60</b></div>
+    </div>
+  </header>
+  <div id="movebar-wrap"><div id="movebar"></div></div>
+
+  <div id="stage">
+    <div id="board"></div>
+  </div>
+  <div id="banner-layer"></div>
+
+  <div id="legend"></div>
+
+  <!-- スタート画面 -->
+  <div class="overlay" id="startScreen">
+    <div class="logo">HOSHOU PUZZLE</div>
+    <h1>ホショウ<span>パズル</span></h1>
+    <p class="lead">
+      ピースを<b>ドラッグ</b>して動かそう。<br>
+      <b style="color:#FF8A8F">リスク</b>と、同じ色の<b style="color:#7DF3E6">ホショウ</b>が<br>
+      となり合うと、ペアで消える！
+    </p>
+    <div class="demo">
+      <div class="dp" style="background:linear-gradient(160deg,#5A1B22,#3A0F14);border:2px solid var(--c0)"><span>🔥</span><i>火事</i></div>
+      <span class="eq">＋</span>
+      <div class="dp" style="background:linear-gradient(160deg,var(--c0),var(--c0d))"><span>🛡</span><i>火災保険</i></div>
+      <span class="eq">→</span>
+      <span style="font-size:24px">✨</span>
+    </div>
+    <p class="lead" style="font-size:11.5px">
+      動かした先の相手が同じ色でつながっていれば<br>
+      <b style="color:var(--gold)">まとめて消える</b>！（落ちてくるピースはペア消し）<br>
+      必殺技はコンボで発動——10で🔥横一列、15で✚十字、<br>
+      20で <b style="color:#8FA8FF">UMBRELLA LIABILITY</b> が全体を包む！<br>
+      たまに降る 🪨<b>無保険ブロック</b> は消せない！<br>
+      となりのピースを消して破壊しよう。<br>
+      持ち時間はドラッグ1回につき5秒、勝負は<b>60秒</b>。
+    </p>
+    <button class="btn" id="startBtn">ゲーム開始</button>
+  </div>
+
+  <!-- チップ解説ポップ -->
+  <div id="chipPopWrap" class="hide">
+    <div id="chipPop">
+      <div id="cpTitle"></div>
+      <p id="cpDesc"></p>
+      <p id="cpNote">※保険・補償の一般的な分類の説明です。実際の補償内容は商品・ご契約により異なります。</p>
+      <button id="cpClose">とじる</button>
+    </div>
+  </div>
+
+  <!-- 結果画面 -->
+  <div class="overlay hide" id="endScreen">
+    <div class="logo">TIME UP</div>
+    <div class="final-score" id="finalScore">0</div>
+    <p class="stat" id="endStat"></p>
+    <p class="rankmsg" id="rankMsg"></p>
+    <div class="matched-lbl">― ゲームで解消したリスク（タップで解説） ―</div>
+    <div class="matched" id="matchedChips"></div>
+    <div class="cta">
+      <div class="cta-copy">リスクへの不安は、ぴったりの補償で消せる。<br>あなたの暮らしと仕事の「ホショウ選び」、<br>私たちがお手伝いします。</div>
+      <div class="cta-company" id="ctaCompany"></div>
+      <div class="cta-lic" id="ctaNote"></div>
+      <a class="cta-btn" id="ctaBtn" href="#">お問い合わせはこちら</a>
+      <a class="cta-btn ghost" id="hubBtn" href="../">🎮 ほかの体験コンテンツを見る</a>
+    </div>
+    <button class="btn" id="retryBtn">もう一度</button>
+    <div class="disclaimer">
+      本ゲームは保険の種類を楽しく知っていただくためのコンテンツです。登場する名称は保険・補償の一般的な分類であり、特定の商品の推奨・募集を目的とするものではありません。補償内容・引受可否は各保険会社の商品・ご契約内容によります。
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   ▼▼▼ CONFIG：配布前にここを差し替えてください ▼▼▼ */
+const CONFIG = {
+  companyName : "○○保険サービス株式会社",
+  companyNote : "損害保険代理業・生命保険代理業",
+  contactLabel: "お問い合わせはこちら",
+  contactUrl  : "#",
+  hubUrl      : "../"   /* ハブページの相対URL。単体配布なら "" にするとボタン非表示 */
+};
+/* ============================================================ */
+
+/* ---------- 属性（ペア）定義 ---------- */
+const TYPES = [
+  {re:"🔥", rn:"火事",   ce:"🛡", cn:"火災保険",
+   desc:"火事や落雷、風災などで建物・家財が受けた損害に備える保険です。"},
+  {re:"🌏", rn:"地震",   ce:"🛡", cn:"地震保険",
+   desc:"地震・噴火・津波による損害に備える、火災保険とセットで入る保険です。"},
+  {re:"🌊", rn:"水害",   ce:"🛡", cn:"水災補償",
+   desc:"台風や豪雨による洪水・土砂災害などの損害に備える補償です。"},
+  {re:"🚗", rn:"事故",   ce:"🛡", cn:"自動車保険",
+   desc:"事故の相手への賠償や、自分のケガ・車の修理に備える保険です。"},
+  {re:"💻", rn:"情報漏洩", ce:"🛡", cn:"サイバー保険",
+   desc:"情報漏えいやサイバー攻撃による損害・費用に備える保険です。"}
+];
+const COLS = 6, ROWS = 5;
+const GAME_TIME = 60;      /* 秒 */
+const DRAG_TIME = 5000;    /* ドラッグ持ち時間 ms */
+
+const $ = id => document.getElementById(id);
+const board = $("board"), app = $("app");
+const REDUCED = (typeof matchMedia === "function") ? matchMedia("(prefers-reduced-motion: reduce)").matches : false;
+
+/* ---------- 効果音 ---------- */
+let AC = null;
+function beep(freq, dur=0.09, type="sine", vol=0.15){
+  try{
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type; o.frequency.value = freq;
+    o.connect(g); g.connect(AC.destination);
+    g.gain.setValueAtTime(vol, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + dur);
+    o.start(); o.stop(AC.currentTime + dur);
+  }catch(e){}
+}
+const sfx = {
+  pick(){ beep(430, .05, "square", .09); },
+  swap(){ beep(300, .04, "square", .06); },
+  clear(chain, i){ beep(480 + chain*90 + i*40, .11, "triangle"); },
+  chain(n){ [0,1,2].forEach(i=>setTimeout(()=>beep(560 + n*70 + i*120, .1, "triangle", .13), i*60)); },
+  big(){ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f, .13, "triangle", .14), i*80)); },
+  fire(){ [220,330,440,660,880,1100].forEach((f,i)=>setTimeout(()=>beep(f, .09, "sawtooth", .15), i*55)); },
+  thud(){ beep(90, .12, "square", .18); setTimeout(()=>beep(60, .16, "square", .14), 60); },
+  umbrella(){
+    [392,523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.13,"triangle",.14), i*90));
+    for(let i=0;i<9;i++) setTimeout(()=>beep(1300+Math.random()*700,.05,"sine",.05), 400+i*70);
+  },
+  cross(){
+    [440,660,880,1320].forEach((f,i)=>setTimeout(()=>beep(f, .1, "triangle", .13), i*70));
+    [1320,880,660,440].forEach((f,i)=>setTimeout(()=>beep(f, .1, "sine", .11), i*70));
+  },
+  over(){ beep(300,.25,"sawtooth"); setTimeout(()=>beep(200,.35,"sawtooth"),180); }
+};
+function buzz(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+
+/* ---------- 状態 ---------- */
+const G = {
+  running:false, resolving:false,
+  score:0, maxChain:0, pairs:0,
+  grid:[],                 /* grid[r][c] = {t, side, el} | null */
+  cell:56, gapPad:6,
+  timeLeft:GAME_TIME, timerId:null,
+  comboTotal:0, firePending:0, crossPending:0, umbPending:0, umbRate:0.5, skillCount:0,
+  rockChance:0.10, rockMax:4, rocksBroken:0,
+  drag:null, dragTimerId:null, dragEndsAt:0,
+  clearedByType:Array(TYPES.length).fill(0)
+};
+
+/* ---------- ジオメトリ ---------- */
+function layout(){
+  const stage = $("stage");
+  const cw = stage.clientWidth  > 40 ? stage.clientWidth  : 368;
+  const ch = stage.clientHeight > 40 ? stage.clientHeight : 428;
+  /* stageのpadding(左右20px/上下16px)と盤面内側余白を控除して算出 */
+  const availW = Math.min(cw - 20, 456) - G.gapPad*2;
+  const availH = (ch - 16) - G.gapPad*2;
+  G.cell = Math.max(40, Math.floor(Math.min(availW / COLS, availH / ROWS)));
+  board.style.width  = (G.cell * COLS + G.gapPad*2) + "px";
+  board.style.height = (G.cell * ROWS + G.gapPad*2) + "px";
+  eachPiece(p=>positionEl(p));
+}
+function xyOf(r,c){ return [G.gapPad + c*G.cell, G.gapPad + r*G.cell]; }
+function posStr(r,c){ const [x,y]=xyOf(r,c); return `translate(${x}px,${y}px)`; }
+function positionEl(p){
+  p.el.style.width = p.el.style.height = (G.cell - 6) + "px";
+  p.el.style.margin = "3px";
+  p.el.style.transform = posStr(p.r, p.c);
+}
+function eachPiece(fn){
+  if(!G.grid.length) return;
+  for(let r=0;r<ROWS;r++){
+    const row = G.grid[r];
+    if(!row) continue;
+    for(let c=0;c<COLS;c++){ const p=row[c]; if(p) fn(p); }
+  }
+}
+
+/* ---------- ピース生成 ---------- */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; }
+function countSides(t){
+  let risk=0, cover=0;
+  eachPiece(p=>{ if(p.t===t){ p.side==="risk" ? risk++ : cover++; } });
+  return {risk, cover};
+}
+function makePiece(t, side, r, c){
+  const el = document.createElement("div");
+  if(side === "rock"){
+    el.className = "piece rock";
+    el.innerHTML = `<span class="p-emoji">🪨</span><span class="p-name">無保険</span>`;
+  }else{
+    const d = TYPES[t];
+    el.className = `piece t${t} ${side}`;
+    el.innerHTML = side === "risk"
+      ? `<span class="p-emoji">${d.re}</span><span class="p-name">${d.rn}</span>`
+      : `<span class="p-emoji">${d.ce}</span><span class="p-name">${d.cn}</span>`;
+  }
+  const p = {t, side, r, c, el};
+  positionEl(p);
+  board.appendChild(el);
+  return p;
+}
+function randomBalanced(){
+  const t = (Math.random()*TYPES.length)|0;
+  const {risk, cover} = countSides(t);
+  const side = risk === cover ? (Math.random()<0.5?"risk":"cover") : (risk < cover ? "risk" : "cover");
+  return {t, side};
+}
+function wouldMatchAt(r, c, t, side){
+  const other = side === "risk" ? "cover" : "risk";
+  return neighbors(r,c).some(([nr,nc])=>{
+    const p = G.grid[nr] && G.grid[nr][nc];
+    return p && p.t === t && p.side === other;
+  });
+}
+function neighbors(r,c){
+  return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([a,b])=>a>=0&&a<ROWS&&b>=0&&b<COLS);
+}
+function initBoard(){
+  board.innerHTML = "";
+  G.grid = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    let t, side, guard = 0;
+    do{
+      ({t, side} = randomBalanced());
+      guard++;
+    }while(wouldMatchAt(r,c,t,side) && guard < 40);
+    if(guard >= 40){
+      /* どうしても衝突するときは隣接に無い属性を探す */
+      for(let ti=0; ti<TYPES.length; ti++){
+        if(!wouldMatchAt(r,c,ti,"risk")){ t=ti; side="risk"; break; }
+        if(!wouldMatchAt(r,c,ti,"cover")){ t=ti; side="cover"; break; }
+      }
+    }
+    G.grid[r][c] = makePiece(t, side, r, c);
+  }
+}
+
+/* ---------- マッチ検出（リスク×同属性ホショウの隣接ペア） ---------- */
+function findMatches(){
+  const used = new Set(), pairs = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const p = G.grid[r][c];
+    if(!p || p.side !== "risk" || used.has(p)) continue;
+    for(const [nr,nc] of neighbors(r,c)){
+      const q = G.grid[nr][nc];
+      if(q && !used.has(q) && q.side === "cover" && q.t === p.t){
+        used.add(p); used.add(q);
+        pairs.push([p, q]);
+        break;
+      }
+    }
+  }
+  return pairs;
+}
+
+/* ---------- 消滅→落下→補充→連鎖 ---------- */
+const wait = ms => new Promise(r=>setTimeout(r, ms));
+async function resolveBoard(dropped){
+  if(G.resolving) return;
+  G.resolving = true;
+  let chain = 0, moveGroups = 0;
+  while(true){
+    const pairs = findMatches();
+    if(!pairs.length){
+      if(G.firePending  > 0){ G.firePending--;  await doStraightFire();       continue; }
+      if(G.crossPending > 0){ G.crossPending--; await doCrossLiability();     continue; }
+      if(G.umbPending   > 0){ G.umbPending--;   await doUmbrellaLiability();  continue; }
+      break;
+    }
+    chain++;
+    G.maxChain = Math.max(G.maxChain, chain);
+    const clearSet = new Set();
+    let groups = 0, maxCluster = 0;
+
+    /* まとめ消し: 1波目のみ・指で動かしたピースの行き先だけに適用 */
+    if(chain === 1 && dropped && G.grid[dropped.r] && G.grid[dropped.r][dropped.c] === dropped){
+      const opp = dropped.side === "risk" ? "cover" : "risk";
+      const cluster = new Set();
+      for(const [nr,nc] of neighbors(dropped.r, dropped.c)){
+        const q = G.grid[nr][nc];
+        if(q && q.t === dropped.t && q.side === opp) floodSame(q, cluster);
+      }
+      if(cluster.size){
+        clearSet.add(dropped);
+        cluster.forEach(x=>clearSet.add(x));
+        groups += cluster.size;      /* まとめ消しは相手の数だけコンボ加算 */
+        maxCluster = cluster.size;
+      }
+    }
+    dropped = null;
+
+    /* それ以外は1対1のペア消し（落下ピースの連鎖は常にこちら） */
+    for(const [p,q] of pairs){
+      if(clearSet.has(p) || clearSet.has(q)) continue;
+      clearSet.add(p); clearSet.add(q);
+      groups++;
+    }
+
+    const fireBefore  = Math.floor(G.comboTotal / 10);
+    const crossBefore = Math.floor(G.comboTotal / 15);
+    const umbBefore   = Math.floor(G.comboTotal / 20);
+    G.comboTotal += groups;
+    G.firePending  += Math.floor(G.comboTotal / 10) - fireBefore;
+    G.crossPending += Math.floor(G.comboTotal / 15) - crossBefore;
+    G.umbPending   += Math.floor(G.comboTotal / 20) - umbBefore;
+    moveGroups += groups;
+
+    let i = 0;
+    for(const x of clearSet){
+      const gain = Math.round(60 * (1 + 0.4*(chain-1)));
+      G.score += gain;
+      if(x.side === "risk"){ G.pairs++; G.clearedByType[x.t]++; }
+      if(i < 4) sfx.clear(chain, i);
+      if(i % 2 === 0) fxBurst(x, gain);
+      x.el.style.setProperty("--pos", posStr(x.r, x.c));
+      x.el.classList.add("clearing");
+      G.grid[x.r][x.c] = null;
+      i++;
+    }
+    /* 消滅ピースに隣接する無保険ブロックを巻き込んで破壊 */
+    const rockSet = new Set();
+    for(const x of clearSet){
+      for(const [nr,nc] of neighbors(x.r, x.c)){
+        const q = G.grid[nr][nc];
+        if(q && q.side === "rock") rockSet.add(q);
+      }
+    }
+    for(const rk of rockSet){
+      G.score += 40;
+      G.rocksBroken++;
+      fxBurst(rk, 40);
+      rk.el.style.setProperty("--pos", posStr(rk.r, rk.c));
+      rk.el.classList.add("clearing","shatter");
+      G.grid[rk.r][rk.c] = null;
+    }
+    if(rockSet.size) sfx.thud();
+    buzz(15);
+    if(maxCluster >= 3) banner(maxCluster + "個 まとめ消し!", true);
+    else if(chain >= 2) banner(chain + " CHAIN!", chain >= 3);
+    if(chain >= 2) sfx.chain(chain);
+    if(!REDUCED && (chain >= 3 || maxCluster >= 3)){
+      app.classList.remove("shake"); void app.offsetWidth; app.classList.add("shake");
+    }
+    updateHUD();
+    await wait(300);
+    clearSet.forEach(x=>x.el.remove());
+    rockSet.forEach(x=>x.el.remove());
+    collapseAndRefill();
+    await wait(260);
+  }
+  if(moveGroups >= 3){ banner(moveGroups + " COMBO!!", true); sfx.big(); G.score += moveGroups * 60; }
+  updateHUD();
+  G.resolving = false;
+  if(G.timeLeft <= 0) endGame();
+}
+/* 同属性かつ同サイド（リスク同士／ホショウ同士）の連結成分を収集 */
+function floodSame(seed, out){
+  const stack = [seed];
+  while(stack.length){
+    const p = stack.pop();
+    if(out.has(p)) continue;
+    out.add(p);
+    for(const [nr,nc] of neighbors(p.r, p.c)){
+      const q = G.grid[nr][nc];
+      if(q && !out.has(q) && q.t === p.t && q.side === p.side) stack.push(q);
+    }
+  }
+}
+/* 落下と補充 */
+function countRocks(){
+  let n = 0;
+  eachPiece(p=>{ if(p.side === "rock") n++; });
+  return n;
+}
+function collapseAndRefill(){
+  let rocks = countRocks();
+  for(let c=0;c<COLS;c++){
+    let wr = ROWS - 1;
+    for(let r=ROWS-1;r>=0;r--){
+      const p = G.grid[r][c];
+      if(p){
+        if(wr !== r){
+          G.grid[wr][c] = p; G.grid[r][c] = null;
+          p.r = wr; positionEl(p);
+        }
+        wr--;
+      }
+    }
+    let spawnIdx = 1;
+    for(let r=wr;r>=0;r--){
+      /* 無保険ブロック: 低確率・盤上上限つきで降ってくる */
+      if(rocks < G.rockMax && Math.random() < G.rockChance){
+        rocks++;
+        const rk = makePiece(-1, "rock", r, c);
+        const [rx] = xyOf(r,c);
+        rk.el.style.transition = "none";
+        rk.el.style.transform = `translate(${rx}px,${G.gapPad - G.cell*spawnIdx}px)`;
+        void rk.el.offsetWidth;
+        rk.el.style.transition = "";
+        positionEl(rk);
+        G.grid[r][c] = rk;
+        spawnIdx++;
+        continue;
+      }
+      /* 補充ピースは着地位置で偶発マッチしないよう生成(連鎖の自己増殖を防止) */
+      let t, side, guard = 0;
+      do{
+        ({t, side} = randomBalanced());
+        guard++;
+      }while(wouldMatchAt(r, c, t, side) && guard < 40);
+      if(guard >= 40){
+        for(let ti=0; ti<TYPES.length; ti++){
+          if(!wouldMatchAt(r, c, ti, "risk")){ t=ti; side="risk"; break; }
+          if(!wouldMatchAt(r, c, ti, "cover")){ t=ti; side="cover"; break; }
+        }
+      }
+      const p = makePiece(t, side, r, c);
+      const [x] = xyOf(r,c);
+      p.el.style.transition = "none";
+      p.el.style.transform = `translate(${x}px,${G.gapPad - G.cell*spawnIdx}px)`;
+      void p.el.offsetWidth;
+      p.el.style.transition = "";
+      positionEl(p);
+      G.grid[r][c] = p;
+      spawnIdx++;
+    }
+  }
+}
+/* 必殺技 STRAIGHT FIRE: ランダム横一列を焼き払う */
+async function doStraightFire(forceRow){
+  G.skillCount++;
+  const row = (typeof forceRow === "number") ? forceRow : (Math.random()*ROWS)|0;
+  banner("STRAIGHT FIRE!!", true);
+  sfx.fire();
+  buzz([30,40,60]);
+  if(!REDUCED){
+    const [,y] = xyOf(row, 0);
+    const fb = document.createElement("div");
+    fb.className = "firebeam";
+    fb.style.top = y + "px";
+    fb.style.height = G.cell + "px";
+    board.appendChild(fb);
+    setTimeout(()=>fb.remove(), 700);
+    app.classList.remove("shake"); void app.offsetWidth; app.classList.add("shake");
+  }
+  await wait(250);
+  let bonus = 0;
+  for(let c=0;c<COLS;c++){
+    const p = G.grid[row][c];
+    if(!p) continue;
+    bonus += 100;
+    if(p.side === "risk"){ G.pairs++; G.clearedByType[p.t]++; }
+    else if(p.side === "rock"){ G.rocksBroken++; }
+    p.el.style.setProperty("--pos", posStr(p.r, p.c));
+    p.el.classList.add("clearing","burning");
+    G.grid[row][c] = null;
+  }
+  G.score += bonus;
+  fxSkillScore(row, bonus, "🔥");
+  updateHUD();
+  await wait(320);
+  board.querySelectorAll(".piece.burning").forEach(el=>el.remove());
+  collapseAndRefill();
+  await wait(260);
+}
+/* 必殺技 CROSS LIABILITY: ランダムの縦横一列を十字に消し去る */
+async function doCrossLiability(forceRow, forceCol){
+  G.skillCount++;
+  const row = (typeof forceRow === "number") ? forceRow : (Math.random()*ROWS)|0;
+  const col = (typeof forceCol === "number") ? forceCol : (Math.random()*COLS)|0;
+  banner("CROSS LIABILITY!!", true, "cross");
+  sfx.cross();
+  buzz([40,50,40,80]);
+  if(!REDUCED){
+    const ix = G.gapPad + col*G.cell + G.cell/2;
+    const iy = G.gapPad + row*G.cell + G.cell/2;
+    const bw = G.cell*COLS + G.gapPad*2, bh = G.cell*ROWS + G.gapPad*2;
+    const h = document.createElement("div");
+    h.className = "clbeam h";
+    h.style.top = (iy - G.cell/2) + "px"; h.style.height = G.cell + "px";
+    h.style.transformOrigin = (ix/bw*100) + "% 50%";
+    const v = document.createElement("div");
+    v.className = "clbeam v";
+    v.style.left = (ix - G.cell/2) + "px"; v.style.width = G.cell + "px";
+    v.style.transformOrigin = "50% " + (iy/bh*100) + "%";
+    const ring = document.createElement("div");
+    ring.className = "clring";
+    ring.style.left = ix + "px"; ring.style.top = iy + "px";
+    const flash = document.createElement("div");
+    flash.className = "clflash";
+    flash.style.setProperty("--cx", (ix/bw*100) + "%");
+    flash.style.setProperty("--cy", (iy/bh*100) + "%");
+    board.appendChild(h); board.appendChild(v);
+    board.appendChild(ring); board.appendChild(flash);
+    setTimeout(()=>{ h.remove(); v.remove(); ring.remove(); flash.remove(); }, 820);
+    app.classList.remove("shake"); void app.offsetWidth; app.classList.add("shake");
+  }
+  await wait(280);
+  let bonus = 0;
+  const hit = [];
+  for(let c=0;c<COLS;c++){ const p = G.grid[row][c]; if(p){ hit.push(p); G.grid[row][c] = null; } }
+  for(let r=0;r<ROWS;r++){ const p = G.grid[r][col]; if(p){ hit.push(p); G.grid[r][col] = null; } }
+  for(const p of hit){
+    bonus += 100;
+    if(p.side === "risk"){ G.pairs++; G.clearedByType[p.t]++; }
+    else if(p.side === "rock"){ G.rocksBroken++; }
+    p.el.style.setProperty("--pos", posStr(p.r, p.c));
+    p.el.classList.add("clearing","crossed");
+  }
+  G.score += bonus;
+  fxSkillScore(row, bonus, "✚");
+  updateHUD();
+  await wait(320);
+  board.querySelectorAll(".piece.crossed").forEach(el=>el.remove());
+  collapseAndRefill();
+  await wait(260);
+}
+/* 必殺技 UMBRELLA LIABILITY: 傘が全体を包み、全ピースを50%の確率で消し去る */
+async function doUmbrellaLiability(){
+  G.skillCount++;
+  banner("UMBRELLA LIABILITY!!", true, "umbrella");
+  sfx.umbrella();
+  buzz([30,50,30,50,80]);
+  if(!REDUCED){
+    const wrap = document.createElement("div");
+    wrap.className = "umb-wrap";
+    wrap.innerHTML = `<div class="umb-glow"></div><div class="umb-icon">☂️</div>`;
+    for(let i=0;i<39;i++){
+      const dr = document.createElement("div");
+      dr.className = "umb-drop";
+      dr.style.left = (4 + Math.random()*92) + "%";
+      dr.style.top = (Math.random()*82) + "%";
+      dr.style.animationDelay = (120 + Math.random()*550) + "ms";
+      wrap.appendChild(dr);
+    }
+    $("stage").appendChild(wrap);
+    setTimeout(()=>wrap.remove(), 1700);
+    app.classList.remove("shake"); void app.offsetWidth; app.classList.add("shake");
+  }
+  await wait(540);
+  let bonus = 0;
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const p = G.grid[r][c];
+    if(!p) continue;
+    if(Math.random() >= G.umbRate) continue;
+    bonus += 70;
+    if(p.side === "risk"){ G.pairs++; G.clearedByType[p.t]++; }
+    else if(p.side === "rock"){ G.rocksBroken++; }
+    p.el.style.setProperty("--pos", posStr(p.r, p.c));
+    p.el.classList.add("clearing","umbrella-hit");
+    G.grid[r][c] = null;
+  }
+  G.score += bonus;
+  if(bonus > 0) fxSkillScore(2, bonus, "☂️");
+  updateHUD();
+  await wait(340);
+  board.querySelectorAll(".piece.umbrella-hit").forEach(el=>el.remove());
+  collapseAndRefill();
+  await wait(260);
+}
+
+/* ---------- 演出 ---------- */
+function fxRoot(){ return $("stage"); }
+function pieceCenter(p){
+  const [x,y] = xyOf(p.r,p.c);
+  const bo = board.offsetLeft || 0, bt = board.offsetTop || 0;
+  return [bo + x + G.cell/2, bt + y + G.cell/2];
+}
+function fxBurst(p, gain){
+  if(REDUCED) return;
+  const [x,y] = pieceCenter(p);
+  const f = document.createElement("div");
+  f.className = "fx pt"; f.textContent = "+" + gain;
+  f.style.left = (x-18) + "px"; f.style.top = (y-16) + "px";
+  fxRoot().appendChild(f);
+  setTimeout(()=>f.remove(), 900);
+  for(let i=0;i<6;i++){
+    const s = document.createElement("div");
+    s.className = "spark";
+    s.style.left = x + "px"; s.style.top = y + "px";
+    s.style.background = ["#FFD23F","#FF5A5F","#7DF3E6","#fff"][i%4];
+    s.style.setProperty("--dx", (Math.random()*110-55) + "px");
+    s.style.setProperty("--dy", (Math.random()*110-55) + "px");
+    fxRoot().appendChild(s);
+    setTimeout(()=>s.remove(), 550);
+  }
+}
+function fxSkillScore(row, bonus, icon){
+  if(REDUCED) return;
+  const [,y] = xyOf(row, 0);
+  const f = document.createElement("div");
+  f.className = "fx pt";
+  f.textContent = icon + " +" + bonus;
+  f.style.left = "50%"; f.style.transform = "translateX(-50%)";
+  f.style.top = ((board.offsetTop||0) + y) + "px";
+  f.style.fontSize = "26px"; f.style.color = "#FF8A5F";
+  fxRoot().appendChild(f);
+  setTimeout(()=>f.remove(), 900);
+}
+function banner(text, gold, extra){
+  const b = document.createElement("div");
+  b.className = "banner" + (gold ? " gold" : "") + (extra ? " " + extra : "");
+  b.textContent = text;
+  $("banner-layer").appendChild(b);
+  setTimeout(()=>b.remove(), 1050);
+}
+
+/* ---------- HUD ---------- */
+function updateHUD(){
+  $("score").textContent = G.score;
+  $("chain").textContent = G.maxChain;
+  $("time").textContent = Math.max(0, Math.ceil(G.timeLeft));
+  $("fire").innerHTML = "🔥" + (G.comboTotal % 10) + "/10<br>✚" + (G.comboTotal % 15) + "/15<br>☂" + (G.comboTotal % 20) + "/20";
+  const tb = $("timeBox");
+  if(G.timeLeft <= 10) tb.classList.add("low"); else tb.classList.remove("low");
+  const cb = $("chainBox");
+  cb.classList.remove("bump"); void cb.offsetWidth; cb.classList.add("bump");
+}
+
+/* ---------- ドラッグ操作（パズドラ方式） ---------- */
+function cellFromPoint(x, y){
+  const rect = board.getBoundingClientRect();
+  const c = Math.floor((x - rect.left - G.gapPad) / G.cell);
+  const r = Math.floor((y - rect.top  - G.gapPad) / G.cell);
+  if(r<0||r>=ROWS||c<0||c>=COLS) return null;
+  return [r,c];
+}
+function startDrag(x, y){
+  if(!G.running || G.resolving || G.drag) return;
+  const cell = cellFromPoint(x, y);
+  if(!cell) return;
+  const [r,c] = cell;
+  const p = G.grid[r][c];
+  if(!p) return;
+  G.drag = {p, moved:false};
+  p.el.classList.add("drag");
+  sfx.pick();
+  followFinger(x, y);
+}
+function followFinger(x, y){
+  const p = G.drag.p;
+  const rect = board.getBoundingClientRect();
+  const lx = Math.max(G.gapPad, Math.min(x - rect.left - G.cell/2, G.gapPad + (COLS-1)*G.cell));
+  const ly = Math.max(G.gapPad, Math.min(y - rect.top  - G.cell/2, G.gapPad + (ROWS-1)*G.cell));
+  p.el.style.transform = `translate(${lx}px,${ly}px)`;
+}
+function moveDrag(x, y){
+  if(!G.drag) return;
+  followFinger(x, y);
+  const cell = cellFromPoint(x, y);
+  if(!cell) return;
+  const p = G.drag.p;
+  let [tr, tc] = cell;
+  /* 斜め・高速スワイプは1マスずつ分解して移動 */
+  let guard = 0;
+  while((p.r !== tr || p.c !== tc) && guard++ < 12){
+    const dr = tr - p.r, dc = tc - p.c;
+    let nr = p.r, nc = p.c;
+    if(Math.abs(dr) >= Math.abs(dc)) nr += Math.sign(dr); else nc += Math.sign(dc);
+    swapInto(p, nr, nc);
+  }
+}
+function swapInto(p, nr, nc){
+  const q = G.grid[nr][nc];
+  G.grid[p.r][p.c] = q;
+  if(q){ q.r = p.r; q.c = p.c; positionEl(q); }
+  G.grid[nr][nc] = p;
+  p.r = nr; p.c = nc;
+  sfx.swap();
+  if(!G.drag.moved){
+    G.drag.moved = true;
+    startMoveTimer();
+  }
+}
+function endDrag(){
+  if(!G.drag) return;
+  const p = G.drag.p;
+  p.el.classList.remove("drag");
+  positionEl(p);
+  const moved = G.drag.moved;
+  G.drag = null;
+  stopMoveTimer();
+  if(moved) resolveBoard(p);
+}
+function startMoveTimer(){
+  G.dragEndsAt = performance.now() + DRAG_TIME;
+  const mb = $("movebar");
+  cancelAnimationFrame(G.dragTimerId);
+  const tick = ()=>{
+    const rest = G.dragEndsAt - performance.now();
+    mb.style.width = Math.max(0, rest / DRAG_TIME * 100) + "%";
+    if(rest <= 0){ endDrag(); return; }
+    if(G.drag) G.dragTimerId = requestAnimationFrame(tick);
+  };
+  G.dragTimerId = requestAnimationFrame(tick);
+}
+function stopMoveTimer(){
+  cancelAnimationFrame(G.dragTimerId);
+  $("movebar").style.width = "100%";
+}
+board.addEventListener("pointerdown", e=>{ e.preventDefault(); startDrag(e.clientX, e.clientY); });
+window.addEventListener("pointermove", e=>{ if(G.drag) e.preventDefault(); moveDrag(e.clientX, e.clientY); }, {passive:false});
+window.addEventListener("pointerup", endDrag);
+window.addEventListener("pointercancel", endDrag);
+
+/* ---------- ゲーム制御 ---------- */
+function startGame(){
+  G.running = true; G.resolving = false;
+  G.score = 0; G.maxChain = 0; G.pairs = 0;
+  G.timeLeft = GAME_TIME;
+  G.comboTotal = 0; G.firePending = 0; G.crossPending = 0; G.umbPending = 0; G.skillCount = 0;
+  G.rocksBroken = 0;
+  G.clearedByType = Array(TYPES.length).fill(0);
+  G.drag = null;
+  layout();
+  initBoard();
+  updateHUD();
+  $("startScreen").classList.add("hide");
+  $("endScreen").classList.add("hide");
+  $("chipPopWrap").classList.add("hide");
+  clearInterval(G.timerId);
+  G.timerId = setInterval(()=>{
+    if(!G.running) return;
+    G.timeLeft -= 0.1;
+    $("time").textContent = Math.max(0, Math.ceil(G.timeLeft));
+    if(G.timeLeft <= 10) $("timeBox").classList.add("low");
+    if(G.timeLeft <= 0){
+      clearInterval(G.timerId);
+      if(G.drag) endDrag();      /* ドラッグ強制終了（移動済みなら解決処理が走る） */
+      if(!G.resolving) endGame(); /* 解決中なら resolveBoard 完了時に endGame */
+    }
+  }, 100);
+  beep(440,.08); setTimeout(()=>beep(660,.12),90);
+}
+function rank(s){
+  if(s >= 6000) return "🏆 リスク解消の達人！";
+  if(s >= 3500) return "🥇 頼れる補償マスター！";
+  if(s >= 1800) return "🥈 なかなかの目利き！";
+  if(s >= 700)  return "🥉 安心の第一歩！";
+  return "💪 リスクは手ごわい。もう一度！";
+}
+function endGame(){
+  if(!G.running) return;
+  G.running = false;
+  clearInterval(G.timerId);
+  sfx.over();
+  $("finalScore").textContent = G.score;
+  let stat = `解消したリスク ${G.pairs}個 ／ 最大チェイン ${G.maxChain} ／ 必殺技 ${G.skillCount}回`;
+  if(G.rocksBroken > 0) stat += ` ／ 無保険ブロック破壊 ${G.rocksBroken}個`;
+  $("endStat").textContent = stat;
+  $("rankMsg").textContent = rank(G.score);
+  const chips = $("matchedChips");
+  chips.innerHTML = "";
+  TYPES.forEach((d,i)=>{
+    if(G.clearedByType[i] > 0){
+      const el = document.createElement("div");
+      el.className = "chip";
+      el.textContent = `${d.re} ${d.rn} ×${G.clearedByType[i]} → ${d.cn}`;
+      el.addEventListener("click", ()=>openChipPop(i));
+      chips.appendChild(el);
+    }
+  });
+  $("endScreen").classList.remove("hide");
+}
+
+/* ---------- 初期化 ---------- */
+function buildLegend(){
+  const lg = $("legend");
+  lg.innerHTML = "";
+  TYPES.forEach(d=>{
+    const el = document.createElement("div");
+    el.className = "lg";
+    el.textContent = `${d.re}${d.rn} ↔ ${d.cn}`;
+    lg.appendChild(el);
+  });
+  const rk = document.createElement("div");
+  rk.className = "lg";
+  rk.textContent = "🪨無保険 → となりで消して破壊";
+  lg.appendChild(rk);
+}
+$("ctaCompany").textContent = CONFIG.companyName;
+if(CONFIG.hubUrl){ $("hubBtn").href = CONFIG.hubUrl; } else { $("hubBtn").style.display = "none"; }
+function openChipPop(i){
+  const d = TYPES[i];
+  $("cpTitle").textContent = `${d.re} ${d.rn} と ${d.cn}`;
+  $("cpDesc").textContent = d.desc;
+  $("chipPopWrap").classList.remove("hide");
+}
+$("cpClose").addEventListener("click", ()=> $("chipPopWrap").classList.add("hide"));
+$("chipPopWrap").addEventListener("click", e=>{
+  if(e.target === $("chipPopWrap")) $("chipPopWrap").classList.add("hide");
+});
+$("ctaNote").textContent = CONFIG.companyNote;
+$("ctaBtn").textContent = CONFIG.contactLabel;
+$("ctaBtn").href = CONFIG.contactUrl;
+$("startBtn").addEventListener("click", startGame);
+$("retryBtn").addEventListener("click", startGame);
+window.addEventListener("resize", layout);
+buildLegend();
+layout();
+
+/* テスト用フック（動作には影響しません） */
+window.__PZ = { G, TYPES, findMatches, resolveBoard, initBoard, startGame, endGame,
+  swapInto, startDrag, moveDrag, endDrag, neighbors, wouldMatchAt, randomBalanced, makePiece, updateHUD,
+  floodSame, collapseAndRefill, doStraightFire, doCrossLiability, doUmbrellaLiability, countRocks, openChipPop };
+</script>
+</body>
+</html>

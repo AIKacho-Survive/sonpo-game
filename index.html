@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101E33">
+<title>あそんで、そなえる。｜保険の体験コンテンツ</title>
+<!-- ============================================================
+     ▼▼ 差し替えポイント ▼▼
+     1. 下部の「○○保険サービス株式会社」→ 貴社名
+     2. お問い合わせボタンの href="#" → 貴社の問い合わせURL または tel:番号
+     3. ゲームカードの href（story/ ・ puzzle/）→ 実際の配置パスに合わせる
+     ============================================================ -->
+<style>
+:root{
+  --navy:#101E33; --navy2:#1C3352;
+  --gold:#FFD23F; --gold-deep:#B9791A;
+  --teal:#33C6B8;
+  --ink:#FFFFFF; --sub:#9FB8CE;
+  --font:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo UI",Meiryo,"Noto Sans JP",sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:var(--font);color:var(--ink);
+  background:linear-gradient(180deg,var(--navy),var(--navy2));
+  min-height:100dvh;display:flex;justify-content:center;
+}
+#wrap{width:100%;max-width:480px;padding:30px 20px calc(28px + env(safe-area-inset-bottom))}
+
+header{text-align:center;margin-bottom:24px}
+.brand{font-size:11px;letter-spacing:.35em;color:var(--gold);font-weight:800}
+h1{font-size:30px;font-weight:900;margin-top:10px;line-height:1.35}
+h1 span{color:var(--gold)}
+.tagline{font-size:12.5px;color:var(--sub);margin-top:8px;line-height:1.9}
+
+.cards{display:flex;flex-direction:column;gap:14px;margin-top:22px}
+a.gcard{
+  display:flex;gap:14px;align-items:center;text-decoration:none;color:var(--ink);
+  background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.16);
+  border-radius:18px;padding:16px 16px;
+  transition:transform .12s,border-color .2s,background .2s;
+}
+a.gcard:active{transform:scale(.98);border-color:var(--gold);background:rgba(255,210,63,.08)}
+.gicon{
+  font-size:34px;width:60px;height:60px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.08);border-radius:16px;
+}
+.ginfo{flex:1;min-width:0}
+.gtitle{font-size:16px;font-weight:800;line-height:1.4}
+.gdesc{font-size:11.5px;color:var(--sub);line-height:1.75;margin-top:4px}
+.gmeta{display:flex;gap:8px;margin-top:7px;flex-wrap:wrap}
+.gtag{
+  font-size:9.5px;font-weight:800;letter-spacing:.06em;
+  border-radius:10px;padding:3px 9px;
+}
+.gtag.time{background:rgba(51,198,184,.16);color:#8FE8DE;border:1px solid rgba(51,198,184,.5)}
+.gtag.genre{background:rgba(255,210,63,.14);color:var(--gold);border:1px solid rgba(255,210,63,.5)}
+.garrow{font-size:18px;color:var(--gold);flex-shrink:0}
+
+.gcard.soon{
+  opacity:.55;pointer-events:none;border-style:dashed;
+}
+.gcard.soon .gtitle{color:var(--sub)}
+
+.cta{
+  margin-top:26px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:18px;padding:18px;text-align:center;
+}
+.cta-copy{font-size:12.5px;line-height:2;color:#C9DCEA}
+.cta-company{font-size:16px;font-weight:800;margin-top:8px}
+.cta-lic{font-size:9.5px;color:#8FA8BF;margin-top:3px}
+.cta a.btn{
+  display:block;margin-top:12px;background:var(--gold);color:#3A2600;
+  font-weight:800;font-size:14px;text-decoration:none;
+  padding:13px;border-radius:14px;letter-spacing:.08em;
+  box-shadow:0 4px 0 var(--gold-deep);
+}
+.cta a.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--gold-deep)}
+
+footer{margin-top:20px;text-align:center}
+.disclaimer{font-size:9px;color:#7E93A6;line-height:1.9;text-align:left}
+.ver{font-size:9px;color:#5F7385;margin-top:10px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <div class="brand">HOKEN EXPERIENCE</div>
+    <h1>あそんで、<span>そなえる。</span></h1>
+    <p class="tagline">保険と代理店の世界を、ゲームで体験。<br>スキマ時間にどうぞ。</p>
+  </header>
+
+  <div class="cards">
+    <a class="gcard" href="story/">
+      <div class="gicon">📞</div>
+      <div class="ginfo">
+        <div class="gtitle">その時、そばに。</div>
+        <div class="gdesc">1本の事故の電話から解決まで──保険代理店の仕事を選択式ストーリーで追体験。</div>
+        <div class="gmeta">
+          <span class="gtag genre">ストーリー</span>
+          <span class="gtag time">約3〜5分</span>
+        </div>
+      </div>
+      <div class="garrow">▶</div>
+    </a>
+
+    <a class="gcard" href="puzzle/">
+      <div class="gicon">🧩</div>
+      <div class="ginfo">
+        <div class="gtitle">ホショウパズル</div>
+        <div class="gdesc">リスクとホショウをつなげて消す60秒スコアアタック。連鎖と必殺技で高得点を狙え！</div>
+        <div class="gmeta">
+          <span class="gtag genre">パズル</span>
+          <span class="gtag time">約1〜2分</span>
+        </div>
+      </div>
+      <div class="garrow">▶</div>
+    </a>
+
+    <a class="gcard" href="defense/">
+      <div class="gicon">🏰</div>
+      <div class="ginfo">
+        <div class="gtitle">ホショウディフェンス</div>
+        <div class="gdesc">迫りくるリスクへの不安から、くらしを守れ！9種の保険タワーで戦うタワーディフェンス。</div>
+        <div class="gmeta">
+          <span class="gtag genre">タワーディフェンス</span>
+          <span class="gtag time">約3〜4分</span>
+        </div>
+      </div>
+      <div class="garrow">▶</div>
+    </a>
+
+    <div class="gcard soon">
+      <div class="gicon">🎁</div>
+      <div class="ginfo">
+        <div class="gtitle">COMING SOON</div>
+        <div class="gdesc">新しい体験コンテンツを準備中です。おたのしみに！</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <div class="cta-copy">暮らしと仕事の「そなえ」のこと、<br>いつでもご相談ください。</div>
+    <div class="cta-company">○○保険サービス株式会社</div>
+    <div class="cta-lic">損害保険代理業・生命保険代理業</div>
+    <a class="btn" href="#">お問い合わせはこちら</a>
+  </div>
+
+  <footer>
+    <p class="disclaimer">
+      本ページのコンテンツは、保険や保険代理店の業務を楽しく知っていただくためのものです。登場する名称・事例は一般的な分類・架空の一例であり、特定の商品の推奨・募集を目的とするものではありません。補償内容・引受可否は各保険会社の商品・ご契約内容によります。
+    </p>
+    <p class="ver">© ○○保険サービス株式会社</p>
+  </footer>
+</div>
+</body>
+</html>
