@@ -633,9 +633,9 @@ function killEnemy(e){
   e.dead = true;
   G.kills++;
   G.pt += e.def.reward;
-  burst(e.x, e.y, e.def.col, e.def.boss ? 80 : 20, e.def.boss ? 5 : 3.2);
+  burst(e.x, e.y, e.def.col, e.def.boss ? 80 : 20, e.def.boss ? 5 : 3.2, 0.5);
   pushFx({k:"ring", x:e.x, y:e.y, r0:3, r1:e.def.boss ? 90 : 26, col:e.def.col,
-          life:e.def.boss ? 600 : 280, max:e.def.boss ? 600 : 280});
+          life:e.def.boss ? 600 : 280, max:e.def.boss ? 600 : 280, a:0.5});
   pushFloat(e.x, e.y - 22, "+" + e.def.reward + "P", "#FFD23F", 12);
   sfx.kill();
   /* 連撃 */
@@ -845,11 +845,11 @@ function shotTick(s, dt){
 
 /* ---------- FX ---------- */
 function pushFx(f){ G.fxs.push(f); if(G.fxs.length > 60) G.fxs.shift(); }
-function burst(x, y, col, n, size){
+function burst(x, y, col, n, size, aMul){
   for(let i=0;i<n;i++){
     const a = Math.random()*Math.PI*2, v = 60 + Math.random()*130;
     G.parts.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v,
-                  life:420+Math.random()*220, max:640, col, size:size*(0.6+Math.random()*0.8), grav:150});
+                  life:420+Math.random()*220, max:640, col, size:size*(0.6+Math.random()*0.8), grav:150, a:aMul});
   }
   if(G.parts.length > 300) G.parts.splice(0, G.parts.length - 300);
 }
@@ -1169,9 +1169,9 @@ function draw(){
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2); ctx.fill();
     }else if(f.k === "ring"){
       const r = f.r0 + (f.r1 - f.r0) * (1 - k);
-      ctx.strokeStyle = hexA(f.col, k*.42); ctx.lineWidth = 3;
+      ctx.strokeStyle = hexA(f.col, k*.42*(f.a||1)); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI*2); ctx.stroke();
-      ctx.strokeStyle = hexA(f.col, k*.13); ctx.lineWidth = 7;
+      ctx.strokeStyle = hexA(f.col, k*.13*(f.a||1)); ctx.lineWidth = 7;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, r*0.82), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "bolt"){
       ctx.strokeStyle = `rgba(214,154,255,${k*.12})`; ctx.lineWidth = 10;
@@ -1212,7 +1212,7 @@ function draw(){
   }
   /* --- パーティクル --- */
   for(const p of G.parts){
-    ctx.globalAlpha = Math.max(0, p.life/p.max) * 0.45;
+    ctx.globalAlpha = Math.max(0, p.life/p.max) * 0.45 * (p.a || 1);
     ctx.fillStyle = p.col;
     if(p.shape === "arrow"){
       const a = p.size;
