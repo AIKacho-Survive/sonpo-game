@@ -160,6 +160,11 @@ header{padding:8px 10px 6px;flex-shrink:0;z-index:20}
   box-shadow:0 5px 0 var(--gold-deep);
 }
 .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--gold-deep)}
+.btn.score{
+  background:linear-gradient(160deg,#7DF3E6,#33C6B8);color:#062A26;
+  box-shadow:0 5px 0 #1A7A70;font-size:15px;
+}
+.btn.score:active{box-shadow:0 1px 0 #1A7A70}
 .final-score{font-size:52px;font-weight:900;color:var(--gold);line-height:1;font-variant-numeric:tabular-nums}
 .stat{font-size:12.5px;color:#C9DCEA;line-height:1.8}
 .rankmsg{font-size:16px;font-weight:800;color:var(--gold)}
@@ -242,7 +247,7 @@ a.cta-btn.ghost{background:transparent;color:var(--gold);border:2px solid var(--
 
   <div id="tray">
     <div id="buildPanel">
-      <div class="tray-title">🛡 ここに置く保険をえらぶ</div>
+      <div class="tray-title">🛡 ここに置く保険をえらぶ　<span style="color:var(--gold)">そなえP <span id="trayPt">0</span></span></div>
       <div class="tw-list" id="twList"></div>
       <button class="tray-close" id="trayClose">キャンセル</button>
     </div>
@@ -309,8 +314,8 @@ a.cta-btn.ghost{background:transparent;color:var(--gold);border:2px solid var(--
       <button class="diff-btn sel" data-diff="normal">ふつう</button>
       <button class="diff-btn" data-diff="hard">ハード</button>
     </div>
+    <button class="btn score" id="scoreBtn">⚔ スコアアタックに挑戦</button>
     <button class="btn" id="retryBtn">もう一度</button>
-    <button class="btn-sub" id="titleBtn">タイトルにもどる</button>
     <div class="disclaimer">
       本ゲームは保険の種類を楽しく知っていただくためのコンテンツです。登場する名称は保険・補償の一般的な分類であり、特定の商品の推奨・募集を目的とするものではありません。補償内容・引受可否は各保険会社の商品・ご契約内容によります。
     </div>
@@ -357,10 +362,14 @@ const TOWERS = [
   sub:"<b>画面ぜんたい</b>を揺らす衝撃波。<b>🌋地震</b>に",
   desc:"地震・噴火・津波による損害に備える保険です。"},
  {id:"income", e:"💰", n:"所得補償保険",     cost:350, dmg:0,  rate:3000, range:0,   kind:"economy", short:"GLTD", gain:12,
-  sub:"攻撃しない。3秒ごとに<b>そなえP+12</b>を生む",
-  desc:"病気やケガで働けない間の、収入の減少に備える保険です。"}
+  sub:"攻撃しない。3秒ごとに<b>そなえP+12</b>。強化で額も間隔も成長",
+  desc:"病気やケガで働けない間の、収入の減少に備える保険です。"},
+ {id:"opt",    e:"📈", n:"サイテキカ",       cost:2000, dmg:0, rate:420,  range:0,   kind:"buff", short:"サイテキカ",
+  sub:"全タワーの攻撃力<b>+20%/Lv</b>（Lv5で+100%・1基のみ）",
+  desc:""}
 ];
 const TW = Object.fromEntries(TOWERS.map(t=>[t.id, t]));
+TW.opt.desc = CONFIG.companyName + "の保険提案で、補償ぜんたいを最適化。強化するほど全タワーの攻撃力がアップ（最大+100%）！（ゲームオリジナルのパワーアップです）";
 
 /* ---------- リスク(敵) ---------- */
 const ENEMIES = {
@@ -398,6 +407,23 @@ const WAVES = [
   spawn:[["kega",12,220],["crash",10,280],["sick",4,1100],["cyber",6,550],["quake",4,1100],["boss",1,1500]]}
 ];
 const HP_SCALE = i => 1 + i*0.24;
+/* スコアアタック: W9以降を自動生成(呼ぶたび乱数のためG.nextWaveにキャッシュして使う) */
+function getWave(idx){
+  if(idx < WAVES.length) return WAVES[idx];
+  const k = idx - WAVES.length;
+  const pool = ["kega","fire","thief","bolt","storm","flood","crash","liab","sick","cyber","quake"];
+  const kinds = 3 + Math.min(3, (k/2)|0);
+  const spawn = [];
+  for(let i=0;i<kinds;i++){
+    const key = pool[(Math.random()*pool.length)|0];
+    const cnt = 6 + ((k*3)>>1) + ((Math.random()*4)|0);
+    const gap = Math.max(200, 640 - k*35);
+    spawn.push([key, cnt, gap]);
+  }
+  if(k % 3 === 2) spawn.push(["boss", 1, 1600]);
+  return {intro:`⚔ リスクの大波、まだまだ止まらない…！`, spawn};
+}
+function prepWave(){ G.nextWave = getWave(G.waveIdx); }
 const SPD_SCALE = i => 1 + i*0.05;
 
 /* ---------- 経路とパッド(%座標) ---------- */
@@ -410,8 +436,12 @@ const PADS = [
   {x:32,y:7},{x:66,y:7},
   {x:28,y:26},{x:52,y:26},{x:74,y:26},
   {x:28,y:46},{x:52,y:46},{x:74,y:46},
-  {x:30,y:66},{x:66,y:66}
+  {x:30,y:66},{x:66,y:66},
+  /* ▼スコアアタックで解放される増設枠 */
+  {x:49,y:7},{x:14,y:66},{x:52,y:66},{x:86,y:86},{x:32,y:88}
 ];
+const BASE_PADS = 10;
+function padActive(i){ return i < BASE_PADS || G.mode === "score"; }
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';
 const DIFFS = {
@@ -460,6 +490,7 @@ function buzz(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} 
 /* ---------- 状態 ---------- */
 const G = {
   running:false, phase:"title",
+  mode:"normal",              /* normal / score */
   diff:"normal", maxLives:9,
   critChance:0.12, critMult:2.0,
   pt:500, lives:9, kills:0, waveIdx:0, speed:1,
@@ -511,7 +542,12 @@ function posAt(dist){
 function placeTower(padIdx, towerId){
   const def = TW[towerId];
   if(!def || G.pt < def.cost) return false;
+  if(!padActive(padIdx)) return false;
   if(G.towers.some(t=>t.pad===padIdx)) return false;
+  if(def.kind === "buff"){
+    if(G.mode !== "score") return false;
+    if(G.towers.some(t=>t.id === "opt")) return false;
+  }
   G.pt -= def.cost;
   const p = PADS[padIdx];
   const t = {pad:padIdx, id:towerId, lv:1, dmg:def.dmg, rate:def.rate,
@@ -523,29 +559,38 @@ function placeTower(padIdx, towerId){
   updateHUD();
   return true;
 }
-const MAX_LV = 5;
+const MAX_LV = 10;
+const OPT_MAX_LV = 5;
+function maxLvOf(t){ return TW[t.id].kind === "buff" ? OPT_MAX_LV : MAX_LV; }
 function upgradeTower(t){
-  if(t.lv >= MAX_LV) return false;
+  if(t.lv >= maxLvOf(t)) return false;
   const cost = upCost(t);
   if(G.pt < cost) return false;
   G.pt -= cost;
   t.lv++;
-  t.dmg = Math.round(t.dmg * 1.5);
-  t.rate = Math.round(t.rate * 0.88);
-  t.range += 0.03;
-  if(TW[t.id].kind === "economy") t.gain = TW[t.id].gain + 4 * (t.lv - 1);   /* 12→16→20→24→28 */
+  if(TW[t.id].kind !== "buff"){
+    t.dmg = Math.round(t.dmg * 1.5);
+    t.rate = Math.round(t.rate * 0.88);
+    t.range += 0.03;
+    if(TW[t.id].kind === "economy") t.gain = TW[t.id].gain + 4 * (t.lv - 1);
+  }
   burst(t.x, t.y, "#FFD23F", 18, 3);
   pushFx({k:"pulse", x:t.x, y:t.y, r:40, life:300, max:300, col:"#FFD23F"});
   sfx.up(); buzz(12);
   updateHUD();
   return true;
 }
-function upCost(t){ return Math.round(TW[t.id].cost * 0.7) * t.lv; }
+function upCost(t){
+  if(TW[t.id].kind === "buff") return 2000 + 2000 * t.lv;   /* 4000→6000→8000→10000 */
+  return Math.round(TW[t.id].cost * 0.7) * t.lv;
+}
 
 /* ---------- 敵 ---------- */
+const ENDLESS_RAMP = k => Math.pow(1.20, k);   /* スコアアタック専用の逓増 */
 function spawnEnemy(key, hpMul){
   const def = ENEMIES[key];
-  const baseHp = Math.round(def.hp * HP_SCALE(G.waveIdx) * DIFFS[G.diff].hp * (hpMul || 1));
+  const ramp = G.waveIdx >= WAVES.length ? ENDLESS_RAMP(G.waveIdx - WAVES.length + 1) : 1;
+  const baseHp = Math.round(def.hp * HP_SCALE(G.waveIdx) * DIFFS[G.diff].hp * ramp * (hpMul || 1));
   const e = {
     key, def,
     hp: baseHp,
@@ -572,7 +617,7 @@ function damageEnemy(e, dmg, fromTower){
   if(e.dead) return;
   const weak = e.def.weak.includes(fromTower.id);
   const crit = Math.random() < G.critChance;
-  const total = Math.round(dmg * (weak ? 3 : 1) * (crit ? G.critMult : 1));
+  const total = Math.round(dmg * (weak ? 3 : 1) * (crit ? G.critMult : 1) * optMul());
   e.hp -= total;
   e.flash = crit ? 140 : 90;
   let label = String(total), col = "#FFFFFF", size = 10;
@@ -622,6 +667,10 @@ function leakEnemy(e){
 }
 
 /* ---------- 攻撃(タワー種別ごと) ---------- */
+function optMul(){
+  const o = G.towers.find(t=>t.id === "opt");
+  return o ? 1 + 0.20 * o.lv : 1;
+}
 function enemiesInRange(t){
   const r = t.range * G.W;
   return G.enemies.filter(e=>!e.dead && Math.hypot(e.x-t.x, e.y-t.y) <= r);
@@ -636,6 +685,17 @@ function towerTick(t, dt){
   t.cd -= dt;
   t.muzzle = Math.max(0, t.muzzle - dt);
   if(t.cd > 0) return;
+  if(def.kind === "buff"){
+    t.cd = def.rate;
+    for(let i=0;i<2;i++){
+      G.parts.push({x:Math.random()*G.W, y:G.H*(0.5+Math.random()*0.45),
+        vx:(Math.random()-.5)*10, vy:-55-Math.random()*50,
+        life:800+Math.random()*350, max:1150,
+        col:Math.random()<.5?"#FF5A5F":"#FF8A8F",
+        size:5+Math.random()*9, grav:0, shape:"arrow"});
+    }
+    return;
+  }
   if(def.kind === "economy"){
     if(G.phase !== "wave"){ t.cd = 0; return; }
     t.cd = t.rate;
@@ -685,12 +745,11 @@ function towerTick(t, dt){
       }
       const pts = [{x:t.x,y:t.y}, ...victims.map(v=>({x:v.x,y:v.y}))];
       pushFx({k:"bolt", pts, life:300, max:300});
-      pushFx({k:"ring", x:t.x, y:t.y, r0:4, r1:22, col:"#FFFFFF", life:200, max:200});
+      pushFx({k:"ring", x:t.x, y:t.y, r0:4, r1:22, col:"#D69AFF", life:200, max:200});
       const ratio = [1, .7, .5];
       victims.forEach((v,i)=>{
-        pushFx({k:"ring", x:v.x, y:v.y, r0:3, r1:30, col:"#D69AFF", life:320, max:320});
-        pushFx({k:"ring", x:v.x, y:v.y, r0:2, r1:16, col:"#FFFFFF", life:220, max:220});
-        burst(v.x, v.y, "#D69AFF", 10, 2.6);
+        pushFx({k:"ring", x:v.x, y:v.y, r0:3, r1:28, col:"#D69AFF", life:300, max:300});
+        burst(v.x, v.y, "#D69AFF", 8, 2.4);
         damageEnemy(v, t.dmg*ratio[i], t);
       });
       sfx.zap();
@@ -724,7 +783,7 @@ function towerTick(t, dt){
       for(let i=0;i<10;i++) G.parts.push({x:t.x+(Math.random()-.5)*40, y:t.y+(Math.random()-.5)*40,
         vx:(Math.random()-.5)*70, vy:-60-Math.random()*70, life:520, max:520, col:"#C79A6B", size:2.6, grav:200});
       for(const e of list) damageEnemy(e, t.dmg, t);
-      shake(2, 160);
+      shake(0.8, 96);
       sfx.slam(); buzz(15);
       break;
     }
@@ -737,12 +796,12 @@ function shotTick(s, dt){
       s.done = true;
       /* 効果範囲全体を青く光らせる+二重の波紋+水柱 */
       pushFx({k:"aoe",  x:s.ex, y:s.ey, r:s.r, col:"#5AB0FF", life:420, max:420});
-      pushFx({k:"ring", x:s.ex, y:s.ey, r0:6, r1:s.r, col:"#8FD0FF", life:420, max:420});
-      pushFx({k:"ring", x:s.ex, y:s.ey, r0:3, r1:s.r*0.65, col:"#FFFFFF", life:300, max:300});
-      for(let i=0;i<24;i++){
+      pushFx({k:"ring", x:s.ex, y:s.ey, r0:6, r1:s.r, col:"#5AB0FF", life:420, max:420});
+      pushFx({k:"ring", x:s.ex, y:s.ey, r0:3, r1:s.r*0.6, col:"#5AB0FF", life:300, max:300});
+      for(let i=0;i<20;i++){
         G.parts.push({x:s.ex+(Math.random()-.5)*s.r*0.8, y:s.ey+(Math.random()-.5)*14,
           vx:(Math.random()-.5)*60, vy:-(70+Math.random()*110),
-          life:480, max:480, col:Math.random()<.5?"#5AB0FF":"#BFE4FF", size:2.6, grav:260});
+          life:480, max:480, col:Math.random()<.22?"#BFE4FF":"#5AB0FF", size:2.4, grav:260});
       }
       for(const e of [...G.enemies]){
         if(e.dead) continue;
@@ -772,8 +831,8 @@ function shotTick(s, dt){
       burst(tg.x, tg.y, "#FF9A45", 14, 2.8);
       pushFx({k:"ring", x:tg.x, y:tg.y, r0:3, r1:24, col:"#FF9A45", life:240, max:240});
     }
-    if(s.k === "dart")  burst(tg.x, tg.y, "#7DF3E6", 5, 1.9);
-    if(s.k === "tracer")burst(tg.x, tg.y, "#FFC94A", 5, 1.9);
+    if(s.k === "dart")  burst(tg.x, tg.y, "#5FC9BE", 4, 1.7);
+    if(s.k === "tracer")burst(tg.x, tg.y, "#D6A63A", 3, 1.5);
     return;
   }
   s.vx = dx/d; s.vy = dy/d;
@@ -813,7 +872,7 @@ function banner(text, tone, small){
 
 /* ---------- ウェーブ ---------- */
 function queueWave(idx){
-  const w = WAVES[idx];
+  const w = G.nextWave || getWave(idx);
   G.spawnQueue = [];
   let base = 0;
   for(const [key, n, gap] of w.spawn){
@@ -825,8 +884,10 @@ function queueWave(idx){
 }
 function showWaveCtl(){
   const idx = G.waveIdx;
-  if(idx >= WAVES.length) return;
-  $("waveInfo").innerHTML = `WAVE ${idx+1}/${WAVES.length}　` + WAVES[idx].intro;
+  if(G.mode !== "score" && idx >= WAVES.length) return;
+  if(!G.nextWave) prepWave();
+  const head = G.mode === "score" ? `WAVE ${idx+1}` : `WAVE ${idx+1}/${WAVES.length}`;
+  $("waveInfo").innerHTML = head + "　" + G.nextWave.intro;
   $("waveBtn").textContent = idx === 0 ? "ウェーブ開始" : "つぎのウェーブへ";
   $("waveCtl").classList.remove("hide");
 }
@@ -846,8 +907,9 @@ function waveCleared(){
   pushFloat(G.W/2, G.H*0.4, "ウェーブクリア +" + bonus + "P", "#FFD23F", 14);
   sfx.clearw();
   updateHUD();
-  if(G.waveIdx >= WAVES.length){ endGame(true); return; }
+  if(G.mode !== "score" && G.waveIdx >= WAVES.length){ endGame(true); return; }
   G.phase = "build";
+  prepWave();
   showWaveCtl();
 }
 
@@ -954,6 +1016,7 @@ function draw(){
   /* --- パッド --- */
   if(G.phase !== "title"){
     for(let i=0;i<PADS.length;i++){
+      if(!padActive(i)) continue;
       if(G.towers.some(t=>t.pad===i)) continue;
       const px = PADS[i].x/100*G.W, py = PADS[i].y/100*G.H;
       ctx.save();
@@ -968,8 +1031,8 @@ function draw(){
     }
   }
   /* --- ぴったりヒント(準備中のみ) --- */
-  if(G.phase === "build" && G.waveIdx < WAVES.length){
-    const firstKey = WAVES[G.waveIdx].spawn[0][0];
+  if(G.phase === "build" && G.nextWave){
+    const firstKey = G.nextWave.spawn[0][0];
     const weakIds = ENEMIES[firstKey].weak;
     for(const t of G.towers){
       if(!weakIds.includes(t.id)) continue;
@@ -993,15 +1056,18 @@ function draw(){
     ctx.save();
     const gb = ctx.createLinearGradient(t.x-22, t.y-22, t.x+22, t.y+22);
     if(def.kind === "economy"){ gb.addColorStop(0,"#6E5A1F"); gb.addColorStop(1,"#4A3B0E"); }
+    else if(def.kind === "buff"){ gb.addColorStop(0,"#6E1F2E"); gb.addColorStop(1,"#4A0E1A"); }
     else{ gb.addColorStop(0,"#1F6E67"); gb.addColorStop(1,"#0E4A45"); }
     ctx.fillStyle = gb;
     rr(t.x-21, t.y-21, 42, 42, 12); ctx.fill();
-    ctx.strokeStyle = def.kind === "economy" ? "#FFD23F" : "#33C6B8";
+    ctx.strokeStyle = def.kind === "economy" ? "#FFD23F" : def.kind === "buff" ? "#FF8A8F" : "#33C6B8";
     ctx.lineWidth = 2;
     rr(t.x-21, t.y-21, 42, 42, 12); ctx.stroke();
     ctx.fillStyle = "#FFFFFF";
     ctx.font = "16px " + EMOJI_FONT;
     ctx.fillText(def.e, t.x, t.y-8);
+    ctx.font = "11px " + EMOJI_FONT;
+    ctx.fillText("🛡", t.x + 11, t.y - 15);
     ctx.font = "bold 7.5px " + FONT;
     ctx.fillStyle = "#DFF6F2";
     ctx.fillText(def.short, t.x, t.y+6);
@@ -1010,7 +1076,7 @@ function draw(){
       const a = t.aim, k = t.muzzle/90;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = `rgba(255,240,180,${k*.85})`;
+      ctx.fillStyle = `rgba(255,240,180,${k*.4})`;
       ctx.beginPath();
       ctx.moveTo(t.x + Math.cos(a)*20, t.y + Math.sin(a)*20);
       ctx.lineTo(t.x + Math.cos(a+2.6)*9, t.y + Math.sin(a+2.6)*9);
@@ -1019,8 +1085,9 @@ function draw(){
       ctx.restore();
     }
     for(let i=0;i<t.lv;i++){
-      ctx.fillStyle = "#FFD23F";
-      ctx.beginPath(); ctx.arc(t.x-14+i*7, t.y+15, 2.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = i < 5 ? "#FFD23F" : "#7DF3E6";   /* Lv6以上はティール色で2段目 */
+      const row = (i/5)|0, col = i%5;
+      ctx.beginPath(); ctx.arc(t.x-14+col*7, t.y+13+row*5, 2.0, 0, Math.PI*2); ctx.fill();
     }
     ctx.restore();
   }
@@ -1061,27 +1128,25 @@ function draw(){
   for(const s of G.shots){
     if(s.k === "lob"){
       const wg = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 8);
-      wg.addColorStop(0, "rgba(255,255,255,.95)");
-      wg.addColorStop(.5, "rgba(143,208,255,.8)");
+      wg.addColorStop(0, "rgba(255,255,255,.58)");
+      wg.addColorStop(.5, "rgba(143,208,255,.5)");
       wg.addColorStop(1, "rgba(90,176,255,0)");
       ctx.fillStyle = wg;
       ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI*2); ctx.fill();
     }else if(s.k === "flame"){
       const fg = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 9);
-      fg.addColorStop(0, "rgba(255,245,200,1)");
-      fg.addColorStop(.45, "rgba(255,154,69,.95)");
+      fg.addColorStop(0, "rgba(255,245,200,.7)");
+      fg.addColorStop(.45, "rgba(255,154,69,.6)");
       fg.addColorStop(1, "rgba(255,90,47,0)");
       ctx.fillStyle = fg;
       ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI*2); ctx.fill();
     }else{
-      const col = s.k === "dart" ? "#7DF3E6" : "#FFC94A";
-      ctx.strokeStyle = col; ctx.lineWidth = s.k === "dart" ? 3 : 3.4;
-      ctx.shadowColor = col; ctx.shadowBlur = 6;
+      const col = s.k === "dart" ? "rgba(95,201,190,.65)" : "rgba(214,166,58,.55)";
+      ctx.strokeStyle = col; ctx.lineWidth = s.k === "dart" ? 2.6 : 2.8;
       ctx.beginPath();
-      ctx.moveTo(s.x - (s.vx||0)*11, s.y - (s.vy||0)*11);
+      ctx.moveTo(s.x - (s.vx||0)*9, s.y - (s.vy||0)*9);
       ctx.lineTo(s.x, s.y);
       ctx.stroke();
-      ctx.shadowBlur = 0;
     }
   }
   /* --- FX --- */
@@ -1089,46 +1154,45 @@ function draw(){
     const k = f.life/f.max;
     if(f.k === "laser"){
       const wCore = 2 + 8*k;
-      ctx.strokeStyle = `rgba(125,243,230,${k*.45})`; ctx.lineWidth = wCore*2.4;
+      ctx.strokeStyle = `rgba(125,243,230,${k*.24})`; ctx.lineWidth = wCore*2.4;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-      ctx.strokeStyle = `rgba(125,243,230,${k*.9})`; ctx.lineWidth = wCore;
+      ctx.strokeStyle = `rgba(125,243,230,${k*.48})`; ctx.lineWidth = wCore;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-      ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = Math.max(1.5, wCore*0.35);
+      ctx.strokeStyle = `rgba(255,255,255,${k*.5})`; ctx.lineWidth = Math.max(1.5, wCore*0.35);
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
     }else if(f.k === "aoe"){
       const g2 = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
-      g2.addColorStop(0, hexA(f.col, k*.5));
-      g2.addColorStop(.75, hexA(f.col, k*.28));
+      g2.addColorStop(0, hexA(f.col, k*.24));
+      g2.addColorStop(.75, hexA(f.col, k*.13));
       g2.addColorStop(1, hexA(f.col, 0));
       ctx.fillStyle = g2;
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2); ctx.fill();
     }else if(f.k === "ring"){
       const r = f.r0 + (f.r1 - f.r0) * (1 - k);
-      ctx.strokeStyle = hexA(f.col, k*.9); ctx.lineWidth = 3;
+      ctx.strokeStyle = hexA(f.col, k*.5); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI*2); ctx.stroke();
-      ctx.strokeStyle = hexA(f.col, k*.35); ctx.lineWidth = 7;
+      ctx.strokeStyle = hexA(f.col, k*.16); ctx.lineWidth = 7;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, r*0.82), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "bolt"){
-      ctx.strokeStyle = `rgba(214,154,255,${k*.4})`; ctx.lineWidth = 14;
+      ctx.strokeStyle = `rgba(214,154,255,${k*.16})`; ctx.lineWidth = 10;
       drawBolt(f.pts);
-      ctx.strokeStyle = `rgba(214,154,255,${k*.95})`; ctx.lineWidth = 6;
+      ctx.strokeStyle = `rgba(214,154,255,${k*.38})`; ctx.lineWidth = 5;
       drawBolt(f.pts);
-      drawBolt(f.pts);   /* 二重パスで枝分かれ感 */
-      ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.lineWidth = 2.2;
+      ctx.strokeStyle = `rgba(255,255,255,${k*.42})`; ctx.lineWidth = 1.8;
       drawBolt(f.pts);
     }else if(f.k === "pulse"){
       const r = f.r * (1 - k);
-      ctx.strokeStyle = hexA(f.col, k*.85);
+      ctx.strokeStyle = hexA(f.col, k*.5);
       ctx.lineWidth = 3.5;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(2,r), 0, Math.PI*2); ctx.stroke();
-      ctx.strokeStyle = hexA(f.col, k*.4); ctx.lineWidth = 8;
+      ctx.strokeStyle = hexA(f.col, k*.2); ctx.lineWidth = 8;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(2,r*.8), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "splashring"){
       const r = f.r * (1 - k*0.4);
-      ctx.strokeStyle = `rgba(90,176,255,${k*.85})`; ctx.lineWidth = 3;
+      ctx.strokeStyle = `rgba(90,176,255,${k*.45})`; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, r*(1-k)+4, 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "crack"){
-      ctx.strokeStyle = `rgba(255,176,63,${k*.8})`; ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `rgba(255,176,63,${k*.45})`; ctx.lineWidth = 2.5;
       for(const a of f.angs){
         ctx.beginPath();
         let cx = f.x, cy = f.y;
@@ -1148,9 +1212,22 @@ function draw(){
   }
   /* --- パーティクル --- */
   for(const p of G.parts){
-    ctx.globalAlpha = Math.max(0, p.life/p.max);
+    ctx.globalAlpha = Math.max(0, p.life/p.max) * 0.5;
     ctx.fillStyle = p.col;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+    if(p.shape === "arrow"){
+      const a = p.size;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - a);
+      ctx.lineTo(p.x - a*0.62, p.y);
+      ctx.lineTo(p.x - a*0.22, p.y);
+      ctx.lineTo(p.x - a*0.22, p.y + a*0.9);
+      ctx.lineTo(p.x + a*0.22, p.y + a*0.9);
+      ctx.lineTo(p.x + a*0.22, p.y);
+      ctx.lineTo(p.x + a*0.62, p.y);
+      ctx.closePath(); ctx.fill();
+    }else{
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+    }
   }
   ctx.restore();
   ctx.globalAlpha = 1;
@@ -1204,6 +1281,7 @@ cv.addEventListener("pointerdown", ev=>{
     if(Math.hypot(t.x-x, t.y-y) <= 26){ openUpgrade(t); return; }
   }
   for(let i=0;i<PADS.length;i++){
+    if(!padActive(i)) continue;
     if(G.towers.some(t=>t.pad===i)) continue;
     const px = PADS[i].x/100*G.W, py = PADS[i].y/100*G.H;
     if(Math.hypot(px-x, py-y) <= 26){ openBuild(i); return; }
@@ -1220,15 +1298,21 @@ function openBuild(padIdx){
   list.innerHTML = "";
   TOWERS.forEach(def=>{
     const c = document.createElement("button");
-    c.className = "tw-card" + (G.pt < def.cost ? " poor" : "");
+    const locked = def.kind === "buff" && G.mode !== "score";
+    const dup = def.kind === "buff" && G.towers.some(t=>t.id === "opt");
+    c.className = "tw-card" + ((G.pt < def.cost || locked || dup) ? " poor" : "");
+    c.dataset.tid = def.id;
+    const sub = locked ? "👑 <b>スコアアタック</b>（大災害クリア後）で解放"
+              : dup ? "設置ずみ（効果は1基まで）" : def.sub;
     c.innerHTML = `<div class="tw-head"><span class="twe">${def.e}</span>
       <span class="twn">${def.n}</span><span class="tw-cost">${def.cost}P</span></div>
-      <div class="tw-sub">${def.sub}</div>`;
+      <div class="tw-sub">${sub}</div>`;
     c.addEventListener("click", ()=>{
       if(placeTower(padIdx, def.id)) closeTray();
     });
     list.appendChild(c);
   });
+  refreshTrayCards();
   $("tray").classList.add("open");
 }
 let upTarget = null;
@@ -1247,9 +1331,11 @@ function refreshUpPanel(){
   $("upName").textContent = `${def.n}　Lv${t.lv}`;
   $("upInfo").innerHTML = def.kind === "economy"
     ? `${(t.rate/1000).toFixed(1)}秒ごとに そなえP +${t.gain}（強化ごとに+4＆高速化）`
+    : def.kind === "buff"
+    ? `設置中ずっと、全タワーの攻撃力 <b>+${t.lv*20}%</b>（強化で+20%ずつ）`
     : `攻撃力 ${t.dmg} ／ 連射 ${(1000/t.rate).toFixed(1)}回/秒 ／ 射程 ${(t.range*100)|0}`;
   const btn = $("upBtn");
-  if(t.lv >= MAX_LV){
+  if(t.lv >= maxLvOf(t)){
     btn.textContent = "強化 MAX";
     btn.classList.add("max");
   }else{
@@ -1266,15 +1352,32 @@ function closeTray(){
 function updateHUD(){
   $("life").textContent = "❤ " + Math.max(0,G.lives) + "/" + G.maxLives;
   $("pt").textContent = G.pt;
-  $("wave").textContent = Math.min(G.waveIdx + (G.phase==="wave"?1:0), WAVES.length) + "/" + WAVES.length;
+  $("wave").textContent = G.mode === "score"
+    ? "W" + (G.waveIdx + (G.phase==="wave"?1:0))
+    : Math.min(G.waveIdx + (G.phase==="wave"?1:0), WAVES.length) + "/" + WAVES.length;
   $("kills").textContent = G.kills;
   if(upTarget) refreshUpPanel();
+  refreshTrayCards();
+}
+/* 追加メニューを現在の資金でリアルタイム更新 */
+function refreshTrayCards(){
+  if(!$("tray").classList.contains("open")) return;
+  if($("buildPanel").style.display === "none") return;
+  document.querySelectorAll("#twList .tw-card").forEach(c=>{
+    const def = TW[c.dataset.tid];
+    if(!def) return;
+    const locked = def.kind === "buff" && G.mode !== "score";
+    const dup = def.kind === "buff" && G.towers.some(t=>t.id === "opt");
+    c.classList.toggle("poor", G.pt < def.cost || locked || dup);
+  });
+  const tp = $("trayPt");
+  if(tp) tp.textContent = G.pt;
 }
 
 /* ---------- ゲーム制御 ---------- */
 function startGame(){
   const D = DIFFS[G.diff];
-  G.running = true; G.phase = "build";
+  G.running = true; G.phase = "build"; G.mode = "normal";
   G.pt = D.pt; G.lives = D.lives; G.maxLives = D.lives;
   G.kills = 0; G.waveIdx = 0;
   G.speed = 1; $("speedBtn").textContent = "▶▶ ×1"; $("speedBtn").classList.remove("on");
@@ -1286,6 +1389,7 @@ function startGame(){
   $("bossBar").style.display = "none";
   closeTray();
   layout();
+  prepWave();
   updateHUD();
   $("startScreen").classList.add("hide");
   $("endScreen").classList.add("hide");
@@ -1299,16 +1403,41 @@ function rank(win, lives){
   if(win)                return "🥈 ギリギリ守りきった！";
   return "💪 リスクは手ごわい。備えを見直してもう一度！";
 }
+function scoreRank(w){
+  if(w >= 16) return "🏆 伝説の守り手！保険の申し子！";
+  if(w >= 13) return "🥇 鉄壁のそなえ！おみごと！";
+  if(w >= 11) return "🥈 大健闘！リスクに強い！";
+  return "💪 スコアアタックの世界へようこそ！";
+}
+function enterScoreMode(){
+  G.mode = "score";
+  G.running = true;
+  G.phase = "build";
+  $("endScreen").classList.add("hide");
+  banner("⚔ SCORE ATTACK!!", "gold");
+  setTimeout(()=>banner("設置枠が増設された！", "", true), 950);
+  prepWave();
+  showWaveCtl();
+  updateHUD();
+  lastT = 0;
+  requestAnimationFrame(frame);
+}
 function endGame(win){
   if(!G.running) return;
   G.running = false;
   win ? sfx.win() : sfx.lose();
   const score = G.kills*10 + G.lives*300 + (win ? 800 : 0) + G.waveIdx*50;
-  $("endLogo").textContent = win ? "MISSION COMPLETE" : "GAME OVER";
-  $("endTitle").innerHTML = win ? "くらしを<span>守りきった！</span>" : "くらしがピンチ…！";
+  if(G.mode === "score"){
+    $("endLogo").textContent = "SCORE ATTACK RESULT";
+    $("endTitle").innerHTML = `WAVE ${G.waveIdx + 1} まで<span>守りぬいた！</span>`;
+  }else{
+    $("endLogo").textContent = win ? "MISSION COMPLETE" : "GAME OVER";
+    $("endTitle").innerHTML = win ? "くらしを<span>守りきった！</span>" : "くらしがピンチ…！";
+  }
+  $("scoreBtn").style.display = (win && G.mode === "normal") ? "" : "none";
   $("finalScore").textContent = score;
   $("endStat").textContent = `げきたい ${G.kills}体 ／ 到達 WAVE ${Math.min(G.waveIdx+1, WAVES.length)} ／ のこりライフ ${G.lives}`;
-  $("rankMsg").textContent = rank(win, G.lives);
+  $("rankMsg").textContent = G.mode === "score" ? scoreRank(G.waveIdx) : rank(win, G.lives);
   const chips = $("matchedChips");
   chips.innerHTML = "";
   TOWERS.forEach(def=>{
@@ -1345,11 +1474,7 @@ function syncDiffBtns(){
 document.querySelectorAll(".diff-btn").forEach(b=>{
   b.addEventListener("click", ()=>{ G.diff = b.dataset.diff; syncDiffBtns(); });
 });
-$("titleBtn").addEventListener("click", ()=>{
-  $("endScreen").classList.add("hide");
-  $("startScreen").classList.remove("hide");
-  syncDiffBtns();
-});
+$("scoreBtn").addEventListener("click", enterScoreMode);
 $("startBtn").addEventListener("click", startGame);
 $("retryBtn").addEventListener("click", startGame);
 $("waveBtn").addEventListener("click", startWave);
@@ -1366,7 +1491,7 @@ layout();
 updateHUD();
 
 /* テスト用フック（動作には影響しません） */
-window.__TD = { G, TOWERS, TW, ENEMIES, WAVES, PADS, DIFFS,
+window.__TD = { G, TOWERS, TW, ENEMIES, WAVES, PADS, DIFFS, getWave, prepWave, enterScoreMode, optMul, padActive, refreshTrayCards,
   update, draw, spawnEnemy, placeTower, upgradeTower, startWave, startGame, endGame,
   damageEnemy, queueWave, posAt, layout, openBuild, closeTray, openChipPop, waveCleared };
 </script>
