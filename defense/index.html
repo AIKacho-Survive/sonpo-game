@@ -349,7 +349,7 @@ const TOWERS = [
  {id:"car",    e:"🚗", n:"自動車保険",       cost:300, dmg:8,  rate:210,  range:.28, kind:"tracer", short:"自動車",
   sub:"超高速マシンガン。すばやい<b>🚗交通事故</b>に",
   desc:"交通事故の相手への賠償や、自分のケガ・車の修理に備えます。"},
- {id:"liab",   e:"⚖️", n:"個人賠償責任保険", cost:300, dmg:20, rate:850,  range:.31, kind:"chain", short:"個人賠責",
+ {id:"liab",   e:"⚖️", n:"個人賠償責任保険", cost:300, dmg:20, rate:850,  range:.36, kind:"chain", short:"個人賠責",
   sub:"<b>稲妻が最大3体に連鎖</b>。<b>💥賠償トラブル</b>に",
   desc:"日常生活で他人にケガをさせた・物を壊した、に備える保険です。"},
  {id:"med",    e:"💊", n:"医療保険",         cost:350, dmg:11, rate:1100, range:.27, kind:"pulse", short:"医療保険",
@@ -1076,7 +1076,7 @@ function draw(){
       const a = t.aim, k = t.muzzle/90;
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = `rgba(255,240,180,${k*.4})`;
+      ctx.fillStyle = `rgba(255,240,180,${k*.32})`;
       ctx.beginPath();
       ctx.moveTo(t.x + Math.cos(a)*20, t.y + Math.sin(a)*20);
       ctx.lineTo(t.x + Math.cos(a+2.6)*9, t.y + Math.sin(a+2.6)*9);
@@ -1108,7 +1108,7 @@ function draw(){
     ctx.fillText(e.def.e, e.x, e.y);
     /* 被弾フラッシュ */
     if(e.flash > 0){
-      ctx.fillStyle = `rgba(255,255,255,${e.flash/90*.7})`;
+      ctx.fillStyle = `rgba(255,255,255,${e.flash/90*.25})`;
       ctx.beginPath(); ctx.arc(e.x, e.y-2, e.def.size*0.62, 0, Math.PI*2); ctx.fill();
     }
     /* HPバー */
@@ -1128,20 +1128,20 @@ function draw(){
   for(const s of G.shots){
     if(s.k === "lob"){
       const wg = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 8);
-      wg.addColorStop(0, "rgba(255,255,255,.58)");
-      wg.addColorStop(.5, "rgba(143,208,255,.5)");
+      wg.addColorStop(0, "rgba(255,255,255,.5)");
+      wg.addColorStop(.5, "rgba(143,208,255,.42)");
       wg.addColorStop(1, "rgba(90,176,255,0)");
       ctx.fillStyle = wg;
       ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI*2); ctx.fill();
     }else if(s.k === "flame"){
       const fg = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 9);
-      fg.addColorStop(0, "rgba(255,245,200,.7)");
-      fg.addColorStop(.45, "rgba(255,154,69,.6)");
+      fg.addColorStop(0, "rgba(255,245,200,.6)");
+      fg.addColorStop(.45, "rgba(255,154,69,.5)");
       fg.addColorStop(1, "rgba(255,90,47,0)");
       ctx.fillStyle = fg;
       ctx.beginPath(); ctx.arc(s.x, s.y, 9, 0, Math.PI*2); ctx.fill();
     }else{
-      const col = s.k === "dart" ? "rgba(95,201,190,.65)" : "rgba(214,166,58,.55)";
+      const col = s.k === "dart" ? "rgba(95,201,190,.55)" : "rgba(214,166,58,.45)";
       ctx.strokeStyle = col; ctx.lineWidth = s.k === "dart" ? 2.6 : 2.8;
       ctx.beginPath();
       ctx.moveTo(s.x - (s.vx||0)*9, s.y - (s.vy||0)*9);
@@ -1154,45 +1154,45 @@ function draw(){
     const k = f.life/f.max;
     if(f.k === "laser"){
       const wCore = 2 + 8*k;
-      ctx.strokeStyle = `rgba(125,243,230,${k*.24})`; ctx.lineWidth = wCore*2.4;
+      ctx.strokeStyle = `rgba(125,243,230,${k*.18})`; ctx.lineWidth = wCore*2.4;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-      ctx.strokeStyle = `rgba(125,243,230,${k*.48})`; ctx.lineWidth = wCore;
+      ctx.strokeStyle = `rgba(125,243,230,${k*.36})`; ctx.lineWidth = wCore;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-      ctx.strokeStyle = `rgba(255,255,255,${k*.5})`; ctx.lineWidth = Math.max(1.5, wCore*0.35);
+      ctx.strokeStyle = `rgba(255,255,255,${k*.38})`; ctx.lineWidth = Math.max(1.5, wCore*0.35);
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
     }else if(f.k === "aoe"){
       const g2 = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
-      g2.addColorStop(0, hexA(f.col, k*.24));
-      g2.addColorStop(.75, hexA(f.col, k*.13));
+      g2.addColorStop(0, hexA(f.col, k*.2));
+      g2.addColorStop(.75, hexA(f.col, k*.11));
       g2.addColorStop(1, hexA(f.col, 0));
       ctx.fillStyle = g2;
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI*2); ctx.fill();
     }else if(f.k === "ring"){
       const r = f.r0 + (f.r1 - f.r0) * (1 - k);
-      ctx.strokeStyle = hexA(f.col, k*.5); ctx.lineWidth = 3;
+      ctx.strokeStyle = hexA(f.col, k*.42); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI*2); ctx.stroke();
-      ctx.strokeStyle = hexA(f.col, k*.16); ctx.lineWidth = 7;
+      ctx.strokeStyle = hexA(f.col, k*.13); ctx.lineWidth = 7;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, r*0.82), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "bolt"){
-      ctx.strokeStyle = `rgba(214,154,255,${k*.16})`; ctx.lineWidth = 10;
+      ctx.strokeStyle = `rgba(214,154,255,${k*.12})`; ctx.lineWidth = 10;
       drawBolt(f.pts);
-      ctx.strokeStyle = `rgba(214,154,255,${k*.38})`; ctx.lineWidth = 5;
+      ctx.strokeStyle = `rgba(214,154,255,${k*.3})`; ctx.lineWidth = 5;
       drawBolt(f.pts);
-      ctx.strokeStyle = `rgba(255,255,255,${k*.42})`; ctx.lineWidth = 1.8;
+      ctx.strokeStyle = `rgba(255,255,255,${k*.32})`; ctx.lineWidth = 1.8;
       drawBolt(f.pts);
     }else if(f.k === "pulse"){
       const r = f.r * (1 - k);
-      ctx.strokeStyle = hexA(f.col, k*.5);
+      ctx.strokeStyle = hexA(f.col, k*.42);
       ctx.lineWidth = 3.5;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(2,r), 0, Math.PI*2); ctx.stroke();
-      ctx.strokeStyle = hexA(f.col, k*.2); ctx.lineWidth = 8;
+      ctx.strokeStyle = hexA(f.col, k*.16); ctx.lineWidth = 8;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(2,r*.8), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "splashring"){
       const r = f.r * (1 - k*0.4);
-      ctx.strokeStyle = `rgba(90,176,255,${k*.45})`; ctx.lineWidth = 3;
+      ctx.strokeStyle = `rgba(90,176,255,${k*.38})`; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, r*(1-k)+4, 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "crack"){
-      ctx.strokeStyle = `rgba(255,176,63,${k*.45})`; ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `rgba(255,176,63,${k*.38})`; ctx.lineWidth = 2.5;
       for(const a of f.angs){
         ctx.beginPath();
         let cx = f.x, cy = f.y;
@@ -1212,7 +1212,7 @@ function draw(){
   }
   /* --- パーティクル --- */
   for(const p of G.parts){
-    ctx.globalAlpha = Math.max(0, p.life/p.max) * 0.5;
+    ctx.globalAlpha = Math.max(0, p.life/p.max) * 0.45;
     ctx.fillStyle = p.col;
     if(p.shape === "arrow"){
       const a = p.size;
