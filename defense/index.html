@@ -365,7 +365,7 @@ const TOWERS = [
   sub:"攻撃しない。3秒ごとに<b>そなえP+12</b>。強化で額も間隔も成長",
   desc:"病気やケガで働けない間の、収入の減少に備える保険です。"},
  {id:"opt",    e:"📈", n:"サイテキカ",       cost:2000, dmg:0, rate:420,  range:0,   kind:"buff", short:"サイテキカ",
-  sub:"全タワーの攻撃力<b>+20%/Lv</b>（Lv5で+100%・1基のみ）",
+  sub:"全タワーの攻撃力<b>+20%/Lv</b>（複数設置で効果が重なる）",
   desc:""}
 ];
 const TW = Object.fromEntries(TOWERS.map(t=>[t.id, t]));
@@ -438,10 +438,16 @@ const PADS = [
   {x:28,y:46},{x:52,y:46},{x:74,y:46},
   {x:30,y:66},{x:66,y:66},
   /* ▼スコアアタックで解放される増設枠 */
-  {x:49,y:7},{x:14,y:66},{x:52,y:66},{x:86,y:86},{x:32,y:88}
+  {x:49,y:7},{x:14,y:66},{x:52,y:66},{x:86,y:86},{x:32,y:88},
+  /* ▼スコアアタックWAVE30到達で出現(左下・道路から遠い=GLTDやサイテキカ向き) */
+  {x:9,y:76},{x:9,y:87},{x:21,y:82}
 ];
 const BASE_PADS = 10;
-function padActive(i){ return i < BASE_PADS || G.mode === "score"; }
+const LATE_PADS_FROM = 15;
+function padActive(i){
+  if(i >= LATE_PADS_FROM) return G.mode === "score" && G.waveIdx >= 29;
+  return i < BASE_PADS || G.mode === "score";
+}
 
 const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",serif';
 const DIFFS = {
@@ -544,10 +550,7 @@ function placeTower(padIdx, towerId){
   if(!def || G.pt < def.cost) return false;
   if(!padActive(padIdx)) return false;
   if(G.towers.some(t=>t.pad===padIdx)) return false;
-  if(def.kind === "buff"){
-    if(G.mode !== "score") return false;
-    if(G.towers.some(t=>t.id === "opt")) return false;
-  }
+  if(def.kind === "buff" && G.mode !== "score") return false;
   G.pt -= def.cost;
   const p = PADS[padIdx];
   const t = {pad:padIdx, id:towerId, lv:1, dmg:def.dmg, rate:def.rate,
@@ -633,9 +636,9 @@ function killEnemy(e){
   e.dead = true;
   G.kills++;
   G.pt += e.def.reward;
-  burst(e.x, e.y, e.def.col, e.def.boss ? 80 : 20, e.def.boss ? 5 : 3.2, 0.5);
+  burst(e.x, e.y, e.def.col, e.def.boss ? 80 : 20, e.def.boss ? 5 : 3.2, 0.35);
   pushFx({k:"ring", x:e.x, y:e.y, r0:3, r1:e.def.boss ? 90 : 26, col:e.def.col,
-          life:e.def.boss ? 600 : 280, max:e.def.boss ? 600 : 280, a:0.5});
+          life:e.def.boss ? 600 : 280, max:e.def.boss ? 600 : 280, a:0.35});
   pushFloat(e.x, e.y - 22, "+" + e.def.reward + "P", "#FFD23F", 12);
   sfx.kill();
   /* 連撃 */
@@ -668,8 +671,9 @@ function leakEnemy(e){
 
 /* ---------- 攻撃(タワー種別ごと) ---------- */
 function optMul(){
-  const o = G.towers.find(t=>t.id === "opt");
-  return o ? 1 + 0.20 * o.lv : 1;
+  let lv = 0;
+  for(const t of G.towers) if(t.id === "opt") lv += t.lv;
+  return 1 + 0.20 * lv;
 }
 function enemiesInRange(t){
   const r = t.range * G.W;
@@ -745,11 +749,11 @@ function towerTick(t, dt){
       }
       const pts = [{x:t.x,y:t.y}, ...victims.map(v=>({x:v.x,y:v.y}))];
       pushFx({k:"bolt", pts, life:300, max:300});
-      pushFx({k:"ring", x:t.x, y:t.y, r0:4, r1:22, col:"#D69AFF", life:200, max:200});
+      pushFx({k:"ring", x:t.x, y:t.y, r0:4, r1:22, col:"#8A5FB8", life:200, max:200, a:0.6});
       const ratio = [1, .7, .5];
       victims.forEach((v,i)=>{
-        pushFx({k:"ring", x:v.x, y:v.y, r0:3, r1:28, col:"#D69AFF", life:300, max:300});
-        burst(v.x, v.y, "#D69AFF", 8, 2.4);
+        pushFx({k:"ring", x:v.x, y:v.y, r0:3, r1:28, col:"#8A5FB8", life:300, max:300, a:0.6});
+        burst(v.x, v.y, "#8A5FB8", 8, 2.4, 0.6);
         damageEnemy(v, t.dmg*ratio[i], t);
       });
       sfx.zap();
@@ -757,8 +761,8 @@ function towerTick(t, dt){
     }
     case "laser": {
       pushFx({k:"laser", x1:t.x, y1:t.y, x2:target.x, y2:target.y, life:170, max:170});
-      pushFx({k:"ring", x:target.x, y:target.y, r0:4, r1:26, col:"#7DF3E6", life:260, max:260});
-      burst(target.x, target.y, "#7DF3E6", 12, 2.6);
+      pushFx({k:"ring", x:target.x, y:target.y, r0:4, r1:26, col:"#2E8C82", life:260, max:260, a:0.6});
+      burst(target.x, target.y, "#2E8C82", 12, 2.6, 0.6);
       damageEnemy(target, t.dmg, t);
       shake(2, 120);
       sfx.laser();
@@ -795,13 +799,13 @@ function shotTick(s, dt){
     if(s.p >= 1){
       s.done = true;
       /* 効果範囲全体を青く光らせる+二重の波紋+水柱 */
-      pushFx({k:"aoe",  x:s.ex, y:s.ey, r:s.r, col:"#5AB0FF", life:420, max:420});
-      pushFx({k:"ring", x:s.ex, y:s.ey, r0:6, r1:s.r, col:"#5AB0FF", life:420, max:420});
-      pushFx({k:"ring", x:s.ex, y:s.ey, r0:3, r1:s.r*0.6, col:"#5AB0FF", life:300, max:300});
+      pushFx({k:"aoe",  x:s.ex, y:s.ey, r:s.r, col:"#2F6BA8", life:420, max:420});
+      pushFx({k:"ring", x:s.ex, y:s.ey, r0:6, r1:s.r, col:"#2F6BA8", life:420, max:420, a:0.7});
+      pushFx({k:"ring", x:s.ex, y:s.ey, r0:3, r1:s.r*0.6, col:"#2F6BA8", life:300, max:300, a:0.7});
       for(let i=0;i<20;i++){
         G.parts.push({x:s.ex+(Math.random()-.5)*s.r*0.8, y:s.ey+(Math.random()-.5)*14,
           vx:(Math.random()-.5)*60, vy:-(70+Math.random()*110),
-          life:480, max:480, col:Math.random()<.22?"#BFE4FF":"#5AB0FF", size:2.4, grav:260});
+          life:480, max:480, col:Math.random()<.22?"#7FA8D0":"#2F6BA8", size:2.4, grav:260});
       }
       for(const e of [...G.enemies]){
         if(e.dead) continue;
@@ -815,7 +819,7 @@ function shotTick(s, dt){
     s.y = s.sy + (s.ey-s.sy)*q - Math.sin(q*Math.PI)*70;
     if(Math.random() < .35){
       G.parts.push({x:s.x, y:s.y, vx:(Math.random()-.5)*25, vy:20+Math.random()*30,
-                    life:300, max:300, col:"#8FD0FF", size:2, grav:120});
+                    life:300, max:300, col:"#5A8FC4", size:2, grav:120});
     }
     return;
   }
@@ -909,6 +913,9 @@ function waveCleared(){
   updateHUD();
   if(G.mode !== "score" && G.waveIdx >= WAVES.length){ endGame(true); return; }
   G.phase = "build";
+  if(G.mode === "score" && G.waveIdx === 29){
+    banner("左下に設置枠が出現した！", "gold", true);
+  }
   prepWave();
   showWaveCtl();
 }
@@ -1128,8 +1135,8 @@ function draw(){
   for(const s of G.shots){
     if(s.k === "lob"){
       const wg = ctx.createRadialGradient(s.x, s.y, 1, s.x, s.y, 8);
-      wg.addColorStop(0, "rgba(255,255,255,.5)");
-      wg.addColorStop(.5, "rgba(143,208,255,.42)");
+      wg.addColorStop(0, "rgba(200,220,240,.42)");
+      wg.addColorStop(.5, "rgba(90,143,196,.36)");
       wg.addColorStop(1, "rgba(90,176,255,0)");
       ctx.fillStyle = wg;
       ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI*2); ctx.fill();
@@ -1154,11 +1161,11 @@ function draw(){
     const k = f.life/f.max;
     if(f.k === "laser"){
       const wCore = 2 + 8*k;
-      ctx.strokeStyle = `rgba(125,243,230,${k*.18})`; ctx.lineWidth = wCore*2.4;
+      ctx.strokeStyle = `rgba(64,158,148,${k*.18})`; ctx.lineWidth = wCore*2.4;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-      ctx.strokeStyle = `rgba(125,243,230,${k*.36})`; ctx.lineWidth = wCore;
+      ctx.strokeStyle = `rgba(64,158,148,${k*.36})`; ctx.lineWidth = wCore;
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
-      ctx.strokeStyle = `rgba(255,255,255,${k*.38})`; ctx.lineWidth = Math.max(1.5, wCore*0.35);
+      ctx.strokeStyle = `rgba(190,230,225,${k*.3})`; ctx.lineWidth = Math.max(1.5, wCore*0.35);
       ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.lineTo(f.x2, f.y2); ctx.stroke();
     }else if(f.k === "aoe"){
       const g2 = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r);
@@ -1174,11 +1181,11 @@ function draw(){
       ctx.strokeStyle = hexA(f.col, k*.13*(f.a||1)); ctx.lineWidth = 7;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(1, r*0.82), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "bolt"){
-      ctx.strokeStyle = `rgba(214,154,255,${k*.12})`; ctx.lineWidth = 10;
+      ctx.strokeStyle = `rgba(138,95,184,${k*.12})`; ctx.lineWidth = 10;
       drawBolt(f.pts);
-      ctx.strokeStyle = `rgba(214,154,255,${k*.3})`; ctx.lineWidth = 5;
+      ctx.strokeStyle = `rgba(138,95,184,${k*.3})`; ctx.lineWidth = 5;
       drawBolt(f.pts);
-      ctx.strokeStyle = `rgba(255,255,255,${k*.32})`; ctx.lineWidth = 1.8;
+      ctx.strokeStyle = `rgba(210,190,235,${k*.26})`; ctx.lineWidth = 1.8;
       drawBolt(f.pts);
     }else if(f.k === "pulse"){
       const r = f.r * (1 - k);
@@ -1189,7 +1196,7 @@ function draw(){
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(2,r*.8), 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "splashring"){
       const r = f.r * (1 - k*0.4);
-      ctx.strokeStyle = `rgba(90,176,255,${k*.38})`; ctx.lineWidth = 3;
+      ctx.strokeStyle = `rgba(47,107,168,${k*.38})`; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(f.x, f.y, r*(1-k)+4, 0, Math.PI*2); ctx.stroke();
     }else if(f.k === "crack"){
       ctx.strokeStyle = `rgba(255,176,63,${k*.38})`; ctx.lineWidth = 2.5;
@@ -1299,11 +1306,9 @@ function openBuild(padIdx){
   TOWERS.forEach(def=>{
     const c = document.createElement("button");
     const locked = def.kind === "buff" && G.mode !== "score";
-    const dup = def.kind === "buff" && G.towers.some(t=>t.id === "opt");
-    c.className = "tw-card" + ((G.pt < def.cost || locked || dup) ? " poor" : "");
+    c.className = "tw-card" + ((G.pt < def.cost || locked) ? " poor" : "");
     c.dataset.tid = def.id;
-    const sub = locked ? "👑 <b>スコアアタック</b>（大災害クリア後）で解放"
-              : dup ? "設置ずみ（効果は1基まで）" : def.sub;
+    const sub = locked ? "👑 <b>スコアアタック</b>（大災害クリア後）で解放" : def.sub;
     c.innerHTML = `<div class="tw-head"><span class="twe">${def.e}</span>
       <span class="twn">${def.n}</span><span class="tw-cost">${def.cost}P</span></div>
       <div class="tw-sub">${sub}</div>`;
@@ -1332,7 +1337,7 @@ function refreshUpPanel(){
   $("upInfo").innerHTML = def.kind === "economy"
     ? `${(t.rate/1000).toFixed(1)}秒ごとに そなえP +${t.gain}（強化ごとに+4＆高速化）`
     : def.kind === "buff"
-    ? `設置中ずっと、全タワーの攻撃力 <b>+${t.lv*20}%</b>（強化で+20%ずつ）`
+    ? `この1基で <b>+${t.lv*20}%</b>／全サイテキカ合計 <b>+${Math.round((optMul()-1)*100)}%</b>`
     : `攻撃力 ${t.dmg} ／ 連射 ${(1000/t.rate).toFixed(1)}回/秒 ／ 射程 ${(t.range*100)|0}`;
   const btn = $("upBtn");
   if(t.lv >= maxLvOf(t)){
@@ -1367,8 +1372,7 @@ function refreshTrayCards(){
     const def = TW[c.dataset.tid];
     if(!def) return;
     const locked = def.kind === "buff" && G.mode !== "score";
-    const dup = def.kind === "buff" && G.towers.some(t=>t.id === "opt");
-    c.classList.toggle("poor", G.pt < def.cost || locked || dup);
+    c.classList.toggle("poor", G.pt < def.cost || locked);
   });
   const tp = $("trayPt");
   if(tp) tp.textContent = G.pt;
