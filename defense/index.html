@@ -626,7 +626,7 @@ function damageEnemy(e, dmg, fromTower){
   let label = String(total), col = "#FFFFFF", size = 10;
   if(weak){ label = "WEAK " + total; col = "#7DF3E6"; size = 11; }
   if(crit){ label = "CRIT! " + total; col = "#FFB03F"; size = 13;
-            burst(e.x, e.y, "#FFB03F", 6, 2.2); }
+            if(!fxLite()) burst(e.x, e.y, "#FFB03F", 6, 2.2); }
   if(weak && crit){ label = "W-CRIT!! " + total; size = 14; }
   pushFloat(e.x + (Math.random()*14-7), e.y - 16, label, col, size);
   if(crit) sfx.crit();
@@ -636,9 +636,11 @@ function killEnemy(e){
   e.dead = true;
   G.kills++;
   G.pt += e.def.reward;
-  burst(e.x, e.y, e.def.col, e.def.boss ? 80 : 20, e.def.boss ? 5 : 3.2, 0.35);
-  pushFx({k:"ring", x:e.x, y:e.y, r0:3, r1:e.def.boss ? 90 : 26, col:e.def.col,
-          life:e.def.boss ? 600 : 280, max:e.def.boss ? 600 : 280, a:0.35});
+  if(!fxLite()){
+    burst(e.x, e.y, e.def.col, e.def.boss ? 80 : 20, e.def.boss ? 5 : 3.2, 0.35);
+    pushFx({k:"ring", x:e.x, y:e.y, r0:3, r1:e.def.boss ? 90 : 26, col:e.def.col,
+            life:e.def.boss ? 600 : 280, max:e.def.boss ? 600 : 280, a:0.35});
+  }
   pushFloat(e.x, e.y - 22, "+" + e.def.reward + "P", "#FFD23F", 12);
   sfx.kill();
   /* 連撃 */
@@ -670,6 +672,8 @@ function leakEnemy(e){
 }
 
 /* ---------- 攻撃(タワー種別ごと) ---------- */
+/* 網膜保護モード: W25以降は着弾・消滅エフェクトを自動OFF(攻撃演出は維持) */
+function fxLite(){ return G.mode === "score" && G.waveIdx >= 24; }
 function optMul(){
   let lv = 0;
   for(const t of G.towers) if(t.id === "opt") lv += t.lv;
@@ -749,11 +753,13 @@ function towerTick(t, dt){
       }
       const pts = [{x:t.x,y:t.y}, ...victims.map(v=>({x:v.x,y:v.y}))];
       pushFx({k:"bolt", pts, life:300, max:300});
-      pushFx({k:"ring", x:t.x, y:t.y, r0:4, r1:22, col:"#8A5FB8", life:200, max:200, a:0.6});
+      if(!fxLite()) pushFx({k:"ring", x:t.x, y:t.y, r0:4, r1:22, col:"#8A5FB8", life:200, max:200, a:0.6});
       const ratio = [1, .7, .5];
       victims.forEach((v,i)=>{
-        pushFx({k:"ring", x:v.x, y:v.y, r0:3, r1:28, col:"#8A5FB8", life:300, max:300, a:0.6});
-        burst(v.x, v.y, "#8A5FB8", 8, 2.4, 0.6);
+        if(!fxLite()){
+          pushFx({k:"ring", x:v.x, y:v.y, r0:3, r1:28, col:"#8A5FB8", life:300, max:300, a:0.6});
+          burst(v.x, v.y, "#8A5FB8", 8, 2.4, 0.6);
+        }
         damageEnemy(v, t.dmg*ratio[i], t);
       });
       sfx.zap();
@@ -761,8 +767,10 @@ function towerTick(t, dt){
     }
     case "laser": {
       pushFx({k:"laser", x1:t.x, y1:t.y, x2:target.x, y2:target.y, life:170, max:170});
-      pushFx({k:"ring", x:target.x, y:target.y, r0:4, r1:26, col:"#2E8C82", life:260, max:260, a:0.6});
-      burst(target.x, target.y, "#2E8C82", 12, 2.6, 0.6);
+      if(!fxLite()){
+        pushFx({k:"ring", x:target.x, y:target.y, r0:4, r1:26, col:"#2E8C82", life:260, max:260, a:0.6});
+        burst(target.x, target.y, "#2E8C82", 12, 2.6, 0.6);
+      }
       damageEnemy(target, t.dmg, t);
       shake(2, 120);
       sfx.laser();
@@ -798,11 +806,13 @@ function shotTick(s, dt){
     s.p += dt / s.fl;
     if(s.p >= 1){
       s.done = true;
-      /* 効果範囲全体を青く光らせる+二重の波紋+水柱 */
+      /* 効果範囲全体を青く光らせる+二重の波紋+水柱(網膜保護中はOFF) */
+      if(!fxLite()){
       pushFx({k:"aoe",  x:s.ex, y:s.ey, r:s.r, col:"#2F6BA8", life:420, max:420});
       pushFx({k:"ring", x:s.ex, y:s.ey, r0:6, r1:s.r, col:"#2F6BA8", life:420, max:420, a:0.7});
       pushFx({k:"ring", x:s.ex, y:s.ey, r0:3, r1:s.r*0.6, col:"#2F6BA8", life:300, max:300, a:0.7});
-      for(let i=0;i<20;i++){
+      }
+      if(!fxLite()) for(let i=0;i<20;i++){
         G.parts.push({x:s.ex+(Math.random()-.5)*s.r*0.8, y:s.ey+(Math.random()-.5)*14,
           vx:(Math.random()-.5)*60, vy:-(70+Math.random()*110),
           life:480, max:480, col:Math.random()<.22?"#7FA8D0":"#2F6BA8", size:2.4, grav:260});
@@ -831,12 +841,14 @@ function shotTick(s, dt){
   if(d <= step + 7){
     s.done = true;
     damageEnemy(tg, s.t.dmg, s.t);
-    if(s.k === "flame"){
-      burst(tg.x, tg.y, "#FF9A45", 14, 2.8);
-      pushFx({k:"ring", x:tg.x, y:tg.y, r0:3, r1:24, col:"#FF9A45", life:240, max:240});
+    if(!fxLite()){
+      if(s.k === "flame"){
+        burst(tg.x, tg.y, "#FF9A45", 14, 2.8);
+        pushFx({k:"ring", x:tg.x, y:tg.y, r0:3, r1:24, col:"#FF9A45", life:240, max:240});
+      }
+      if(s.k === "dart")  burst(tg.x, tg.y, "#5FC9BE", 4, 1.7);
+      if(s.k === "tracer")burst(tg.x, tg.y, "#D6A63A", 3, 1.5);
     }
-    if(s.k === "dart")  burst(tg.x, tg.y, "#5FC9BE", 4, 1.7);
-    if(s.k === "tracer")burst(tg.x, tg.y, "#D6A63A", 3, 1.5);
     return;
   }
   s.vx = dx/d; s.vy = dy/d;
@@ -913,6 +925,10 @@ function waveCleared(){
   updateHUD();
   if(G.mode !== "score" && G.waveIdx >= WAVES.length){ endGame(true); return; }
   G.phase = "build";
+  if(G.mode === "score" && G.waveIdx === 24){
+    banner("👁 網膜保護モードON", "gold", true);
+    setTimeout(()=>banner("着弾・消滅エフェクトをOFFにしました", "", true), 1000);
+  }
   if(G.mode === "score" && G.waveIdx === 29){
     banner("左下に設置枠が出現した！", "gold", true);
   }
@@ -1114,7 +1130,7 @@ function draw(){
     ctx.font = e.def.size + "px " + EMOJI_FONT;
     ctx.fillText(e.def.e, e.x, e.y);
     /* 被弾フラッシュ */
-    if(e.flash > 0){
+    if(e.flash > 0 && !fxLite()){
       ctx.fillStyle = `rgba(255,255,255,${e.flash/90*.25})`;
       ctx.beginPath(); ctx.arc(e.x, e.y-2, e.def.size*0.62, 0, Math.PI*2); ctx.fill();
     }
@@ -1248,6 +1264,13 @@ function draw(){
     ctx.fillText(f.text, f.x, f.y);
   }
   ctx.globalAlpha = 1;
+  if(fxLite()){
+    ctx.font = "9px " + FONT;
+    ctx.fillStyle = "rgba(223,246,242,.55)";
+    ctx.textAlign = "left";
+    ctx.fillText("👁 網膜保護モード：着弾・消滅エフェクトOFF", 8, G.H - 6);
+    ctx.textAlign = "center";
+  }
   ctx.restore();
 }
 const FONT = '"Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif';
@@ -1495,7 +1518,7 @@ layout();
 updateHUD();
 
 /* テスト用フック（動作には影響しません） */
-window.__TD = { G, TOWERS, TW, ENEMIES, WAVES, PADS, DIFFS, getWave, prepWave, enterScoreMode, optMul, padActive, refreshTrayCards,
+window.__TD = { G, TOWERS, TW, ENEMIES, WAVES, PADS, DIFFS, getWave, prepWave, enterScoreMode, optMul, padActive, refreshTrayCards, fxLite,
   update, draw, spawnEnemy, placeTower, upgradeTower, startWave, startGame, endGame,
   damageEnemy, queueWave, posAt, layout, openBuild, closeTray, openChipPop, waveCleared };
 </script>
